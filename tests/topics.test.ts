@@ -81,6 +81,25 @@ describe('simultaneous equations really solve', () => {
     });
   }
 
+  it('graphs: tables have 4 x values, one input per y, values on the grid, and the crossing shows in both tables', () => {
+    const topic = TOPICS.find((t) => t.id === 'sim-graph')!;
+    for (let i = 0; i < 1000; i++) {
+      const p = topic.gen();
+      const t = p.table!;
+      expect(t.xs).toHaveLength(4);
+      expect((p.q.match(/class="tc"/g) ?? []).length).toBe(8);
+      for (const ys of t.ys) for (const y of ys) expect(Math.abs(y)).toBeLessThanOrEqual(7);
+      if (p.kind === 'pair') {
+        const [x, y] = p.pair!.map((f) => f.n);
+        const j = t.xs.indexOf(x);
+        expect(j).toBeGreaterThanOrEqual(0);
+        expect(t.ys[0][j]).toBe(y);
+        expect(t.ys[1][j]).toBe(y);
+      } else if (p.correct === 2) expect(t.ys[0]).toEqual(t.ys[1]);
+      else t.ys[0].forEach((y, j) => expect(y - t.ys[1][j]).toBe(t.ys[0][0] - t.ys[1][0]));
+    }
+  });
+
   it('the multiplier is a real change (never 0 or 1)', () => {
     const topic = TOPICS.find((t) => t.id === 'sim-mult')!;
     for (let i = 0; i < 500; i++) {

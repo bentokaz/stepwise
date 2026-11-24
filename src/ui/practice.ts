@@ -1,5 +1,5 @@
 /** The practice screen: question, two tries, scoring, keypad, tools tabs and the "lesson mastered" dialog. */
-import { feq, pick } from '../math/core';
+import { F, feq, pick } from '../math/core';
 import { FR, MINUS, o } from '../math/html';
 import { clean, parseAnswer } from '../math/parse';
 import { GOAL, TOPICS, findTopic, topicName, type Problem } from '../math/topics';
@@ -97,9 +97,99 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   const kbtn = $('#kbtn');
   let activeInput: HTMLInputElement = inp;
   for (const el of [inp, px, py]) el.addEventListener('focus', () => (activeInput = el));
-  const mode = () => P?.kind ?? 'num';
+  /** Table-of-values questions start on the tables; the answer comes after. */
+  let stage: 'table' | 'answer' = 'answer';
+  let cells: HTMLInputElement[] = [];
+  const mode = () => (stage === 'table' ? 'table' : (P?.kind ?? 'num'));
+  const tableBox = () => $('#qmath').querySelector<HTMLElement>('.tside') ?? field;
   /** The element that shakes, glows and bursts for the current answer mode. */
-  const answerBox = () => (mode() === 'pair' ? pairEl : field);
+  const answerBox = () => (mode() === 'pair' ? pairEl : mode() === 'table' ? tableBox() : field);
+
+  /** Shows the answer controls for the current mode. */
+  function showAnswerRow() {
+    const m = mode();
+    $('#lhs').hidden = !P!.lhs || m !== 'num';
+    field.hidden = m !== 'num';
+    pairEl.hidden = m !== 'pair';
+    choicesEl.hidden = m !== 'choice';
+    kbtn.hidden = m === 'choice';
+    if (m === 'choice') keypad.hidden = true;
+    submit.hidden = m === 'choice';
+    if (m === 'choice') renderChoices();
+  }
+
+  /** Fills every table cell with the right value (marking ones the student got wrong), then plots. */
+  function fillTables() {
+    for (const c of cells) {
+      const want = P!.table!.ys[+c.dataset.l!][+c.dataset.j!];
+      if (!c.classList.contains('ok')) {
+        c.value = String(want).replace('-', MINUS);
+        c.className = 'tc fix';
+      }
+      c.disabled = true;
+    }
+  }
+  const plot = () => $('#qmath').querySelector('.tq')?.classList.add('plotted');
+
+  function wireCells() {
+    cells = [...$('#qmath').querySelectorAll<HTMLInputElement>('input.tc')];
+    cells.forEach((c, i) => {
+      c.addEventListener('focus', () => (activeInput = c));
+      c.addEventListener('input', () => c.classList.remove('bad'));
+      c.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const next = cells.slice(i + 1).concat(cells.slice(0, i)).find((o) => !o.disabled && !o.value.trim());
+        if (next) next.focus();
+        else check();
+      });
+    });
+  }
+
+  /** Checks the tables: null after a hint (no try used), otherwise whether every cell is right. */
+  function readTables(): { right: boolean; shown: string } | null {
+    const open = cells.filter((c) => !c.disabled);
+    const empty = open.find((c) => !c.value.trim());
+    if (empty) {
+      empty.focus();
+      replayClass(tableBox(), 'shake');
+      msg('nudge', `<span>Fill in every ${'<i class="mv">y</i>'} value first. That didn’t use a try.</span>`);
+      return null;
+    }
+    const parsed = open.map((c) => parseAnswer(c.value.replace(MINUS, '-')));
+    if (parsed.some((p) => !p.ok)) {
+      msg('nudge', FORMAT_HELP);
+      return null;
+    }
+    let right = true;
+    open.forEach((c, i) => {
+      const p = parsed[i];
+      const ok = p.ok && feq(p.f, F(P!.table!.ys[+c.dataset.l!][+c.dataset.j!]));
+      c.classList.toggle('ok', ok);
+      c.classList.toggle('bad', !ok);
+      if (ok) c.disabled = true;
+      else right = false;
+    });
+    const rows = [0, 1].map((l) =>
+      cells
+        .filter((c) => +c.dataset.l! === l)
+        .map((c) => escapeHTML(clean(c.value)).replace(/-/g, MINUS))
+        .join(', '),
+    );
+    return { right, shown: `(1) ${rows[0]} &nbsp;(2) ${rows[1]}` };
+  }
+
+  function tablesDone() {
+    stage = 'answer';
+    sfx.tap();
+    plot();
+    $('#inst').innerHTML = P!.inst2 ?? P!.inst;
+    submit.textContent = 'Submit';
+    showAnswerRow();
+    msg('good', `<div><b>Tables right.</b> <span class="sub">Now read the graph.</span></div>`);
+    activeInput = px;
+    if (mode() === 'pair' && matchMedia('(hover:hover)').matches) px.focus({ preventScroll: true });
+  }
 
   function renderChoices() {
     choicesEl.innerHTML = (P!.choices ?? [])
@@ -117,38 +207,33 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
       phase = 'ask';
       qnum++;
       lastWrong = '';
+      stage = P.table ? 'table' : 'answer';
       const m = mode();
       $('#inst').innerHTML = P.inst;
       $('#qmath').innerHTML = P.q;
+      wireCells();
       // "explain the step": keep the highlighted step in view
       requestAnimationFrame(() => {
         const ex = $('#qmath').querySelector<HTMLElement>('.exq');
         if (ex) ex.scrollTop = ex.scrollHeight;
       });
       $('#lhs').innerHTML = P.lhs;
-      $('#lhs').hidden = !P.lhs || m !== 'num';
       $('#qn').textContent = `Question ${qnum}`;
-      field.hidden = m !== 'num';
-      pairEl.hidden = m !== 'pair';
-      choicesEl.hidden = m !== 'choice';
-      kbtn.hidden = m === 'choice';
-      if (m === 'choice') keypad.hidden = true;
       for (const el of [inp, px, py]) {
         el.value = '';
         el.disabled = false;
       }
       field.className = 'field';
       pairEl.className = 'pair';
-      if (m === 'choice') renderChoices();
+      showAnswerRow();
       updPreview();
       fb.innerHTML = '';
       prob.classList.remove('solving');
       setPips();
-      submit.textContent = 'Submit';
+      submit.textContent = m === 'table' ? 'Check tables' : 'Submit';
       submit.className = 'btn primary submit';
-      submit.hidden = m === 'choice';
       if ($<HTMLInputElement>('#autoclear').checked && !first) pad.clear();
-      activeInput = m === 'pair' ? px : inp;
+      activeInput = m === 'pair' ? px : m === 'table' ? cells[0] : inp;
       if (m !== 'choice' && matchMedia('(hover:hover)').matches) activeInput.focus({ preventScroll: true });
       qwrap.classList.remove('slide-out');
       if (!first && !reduceMotion()) {
@@ -220,7 +305,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   }
 
   function lockInputs() {
-    for (const el of [inp, px, py]) el.disabled = true;
+    for (const el of [inp, px, py, ...cells]) el.disabled = true;
     choicesEl.querySelectorAll<HTMLButtonElement>('.choice').forEach((b) => (b.disabled = true));
   }
 
@@ -228,6 +313,12 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     if (!P) return;
     if (phase !== 'ask') return newQ();
     if (mode() === 'choice') return;
+    if (mode() === 'table') {
+      const t = readTables();
+      if (!t) return;
+      if (t.right) return tablesDone();
+      return onWrong(t.shown);
+    }
     const res = readTyped();
     if (!res) return;
     if (res.right) onRight(answerBox());
@@ -290,14 +381,21 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
         'retry',
         mode() === 'choice'
           ? `<span><b>Not that one.</b> One more try.</span>`
-          : `<span><b>Not quite.</b> One more try. Check your signs and your arithmetic.</span>`,
+          : mode() === 'table'
+            ? `<span><b>Some values are off.</b> Fix the red cells. One more try.</span>`
+            : `<span><b>Not quite.</b> One more try. Check your signs and your arithmetic.</span>`,
       );
       if (mode() === 'num') inp.select();
       if (mode() === 'pair') px.select();
+      if (mode() === 'table') cells.find((c) => c.classList.contains('bad'))?.select();
     } else {
       phase = 'revealed';
       s.total++;
       S.streak = 0;
+      if (P!.table) {
+        fillTables();
+        plot();
+      }
       lockInputs();
       if (mode() === 'choice') choicesEl.querySelector(`[data-i="${P!.correct}"]`)?.classList.add('answer');
       setPips('out');
@@ -387,7 +485,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   );
   function renderExample() {
     const t = topic(), e = t.gen(), ex = $('#ex');
-    ex.innerHTML = `<div class="ex-q"><div class="qm">${e.q}</div><div class="inx"><span class="eyebrow">Example</span><br>${e.inst}</div><button class="btn ghost sm" id="anotherEx">New example</button></div>`;
+    ex.innerHTML = `<div class="ex-q"><div class="qm">${e.table ? e.sample : e.q}</div><div class="inx"><span class="eyebrow">Example</span><br>${e.inst}</div><button class="btn ghost sm" id="anotherEx">New example</button></div>`;
     ex.appendChild(walkthrough(e, { mode: 'example' }));
     $('#anotherEx').onclick = renderExample;
   }

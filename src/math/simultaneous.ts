@@ -216,114 +216,173 @@ function multiplier(): Problem {
   }
 }
 
-/* ---------------- graphing ---------------- */
+/* ---------------- graphing (table of values) ---------------- */
 
 type Line = { m: number; k: number; std?: [number, number, number] };
+const yAt = (ln: Line, x: number) => ln.m * x + ln.k;
 const lineEq = (ln: Line) =>
   ln.std ? `${lin(ln.std[0], ln.std[1])}${EQ}${N(ln.std[2])}` : `${V('y')}${EQ}${join([[ln.m, V('x')], [ln.k, '']])}`;
 
 const lineRow = (ln: Line, tag: string): Row =>
   ln.std ? { l: lin(ln.std[0], ln.std[1]), r: N(ln.std[2]), tag } : { l: V('y'), r: join([[ln.m, V('x')], [ln.k, '']]), tag };
 
-function linesSVG(a: Line, b: Line, dashed: boolean): string {
+const toStd = (ln: Line, scale = 1): [number, number, number] => [-ln.m * scale, scale, ln.k * scale]; // −mx + y = k
+const LIM = 8;
+
+/**
+ * The grid with both lines' table points and lines. The plotted layer stays hidden
+ * until the page adds `plotted` to the question (CSS draws it in).
+ */
+function plotSVG(a: Line, b: Line, xs: number[], dashed: boolean, hit?: [number, number]): string {
   let g = '';
-  for (let i = -8; i <= 8; i++) {
+  for (let i = -LIM; i <= LIM; i++) {
     g += `<line class="gl" x1="${i}" y1="-8.5" x2="${i}" y2="8.5"/><line class="gl" x1="-8.5" y1="${i}" x2="8.5" y2="${i}"/>`;
   }
   g += `<line class="ax" x1="-8.5" y1="0" x2="8.5" y2="0"/><line class="ax" x1="0" y1="-8.5" x2="0" y2="8.5"/>`;
-  let lb = '';
-  for (let i = -8; i <= 8; i += 2) {
+  let lb = `<text class="lb ax-n" x="8.55" y="-.25" text-anchor="end">x</text><text class="lb ax-n" x=".25" y="-8.1">y</text>`;
+  for (let i = -LIM + 2; i <= LIM - 2; i += 2) {
     if (!i) continue;
     lb += `<text class="lb" x="${i}" y=".8" text-anchor="middle">${N(i)}</text><text class="lb" x="-.3" y="${-i + 0.2}" text-anchor="end">${N(i)}</text>`;
   }
-  const seg = (ln: Line, cls: string) => `<line class="${cls}" x1="-9" y1="${-(ln.m * -9 + ln.k)}" x2="9" y2="${-(ln.m * 9 + ln.k)}"/>`;
-  return `<svg class="gsv" viewBox="-8.8 -8.8 17.6 17.6" role="img" aria-label="Graph of two straight lines"><rect class="bgr" x="-8.8" y="-8.8" width="17.6" height="17.6"/>
-    <g transform="scale(1,-1)">${g}</g>${lb}${seg(a, 'ln')}${seg(b, dashed ? 'ln2 dash' : 'ln2')}</svg>`;
+  const n = xs.length;
+  const seg = (ln: Line, cls: string, d: number) =>
+    `<line class="${cls}" pathLength="1" style="--d:${d}" x1="-9" y1="${-yAt(ln, -9)}" x2="9" y2="${-yAt(ln, 9)}"/>`;
+  const pts = (ln: Line, cls: string, d0: number) =>
+    xs.map((x, j) => `<circle class="${cls}" style="--d:${d0 + j}" cx="${x}" cy="${-yAt(ln, x)}" r=".27"/>`).join('');
+  const hitDot = hit ? `<circle class="hit" cx="${hit[0]}" cy="${-hit[1]}" r=".5"/>` : '';
+  return `<svg class="gsv" viewBox="-8.8 -8.8 17.6 17.6" role="img" aria-label="Grid for plotting both lines"><rect class="bgr" x="-8.8" y="-8.8" width="17.6" height="17.6"/>
+    <g transform="scale(1,-1)">${g}</g>${lb}<g class="plot">${seg(a, 'ln', n)}${seg(b, dashed ? 'ln2 dash' : 'ln2', 2 * n + 1)}${pts(a, 'pt1', 0)}${pts(b, 'pt2', n + 1)}${hitDot}</g></svg>`;
 }
 
-const toStd = (ln: Line, scale = 1): [number, number, number] => [-ln.m * scale, scale, ln.k * scale]; // −mx + y = k
+/** A table of values: x row given, y row as inputs (question) or filled in (working). */
+function valueTable(ln: Line, xs: number[], li: number, inputs: boolean): string {
+  const ys = xs.map(
+    (x, j) =>
+      `<td>${
+        inputs
+          ? `<input class="tc" data-l="${li}" data-j="${j}" autocomplete="off" spellcheck="false" aria-label="y in table ${li + 1} when x is ${N(x)}">`
+          : N(yAt(ln, x))
+      }</td>`,
+  );
+  return `<table class="vt${inputs ? '' : ' mini'}"><tr><th>${V('x')}</th>${xs.map((x) => `<td>${N(x)}</td>`).join('')}</tr><tr><th>${V('y')}</th>${ys.join('')}</tr></table>`;
+}
+
+/** "For example, when x = 2: y = 2(2) + 1 = 5" (or the standard-form version). */
+function tableWhy(ln: Line, label: string, x: number): string {
+  const y = yAt(ln, x);
+  const sub = `(${N(x)})`;
+  if (!ln.std)
+    return `Make a table of values for ${label}: substitute each ${V('x')} value to get ${V('y')}. For example, when ${V('x')}${EQ}${N(x)}: ${V('y')}${EQ}${join([[ln.m, sub], [ln.k, '']])}${EQ}${N(y)}.`;
+  const [a, b, c] = ln.std;
+  return `Make a table of values for ${label}: substitute each ${V('x')} value and solve for ${V('y')}. For example, when ${V('x')}${EQ}${N(x)}: ${join([[a, sub], [b, V('y')]])}${EQ}${N(c)}, so ${V('y')}${EQ}${N(y)}.`;
+}
+
+function tableProblem(a: Line, b: Line, xs: number[], dashed: boolean, finish: Pick<Problem, 'kind' | 'pair' | 'choices' | 'correct' | 'ans'> & { steps: Step[]; inst2: string; hit?: [number, number] }): Problem {
+  const ex = xs.find((x) => x !== 0) ?? xs[0];
+  const blk = (ln: Line, li: number, cls: string) =>
+    `<div class="tblk"><div class="teq"><span class="key ${cls}"></span>${lineEq(ln)}${lbl(`(${li + 1})`)}</div>${valueTable(ln, xs, li, true)}</div>`;
+  return {
+    inst: 'Step 1 of 2: complete the table of values for each equation.',
+    inst2: finish.inst2,
+    q: `<div class="gq tq">${plotSVG(a, b, xs, dashed)}<div class="tside">${blk(a, 0, 'c1')}${blk(b, 1, 'c2')}</div></div>`,
+    sample: system(lineEq(a), lineEq(b)),
+    lhs: '',
+    ans: finish.ans,
+    kind: finish.kind,
+    pair: finish.pair,
+    choices: finish.choices,
+    correct: finish.correct,
+    table: { xs, ys: [xs.map((x) => yAt(a, x)), xs.map((x) => yAt(b, x))] },
+    work: [
+      { l: '', r: '', rows: [lineRow(a, '…. (1)'), lineRow(b, '…. (2)')] },
+      St(tableWhy(a, 'equation (1)', ex), { full: valueTable(a, xs, 0, false) }),
+      St(tableWhy(b, 'equation (2)', ex), { full: valueTable(b, xs, 1, false) }),
+      St('Plot the points from each table and join each set with a straight line.', {
+        full: plotSVG(a, b, xs, dashed, finish.hit).replace('class="gsv"', 'class="gsv mini plotted"'),
+      }),
+      ...finish.steps,
+    ],
+  };
+}
+
+/** Four x values in a row, like 0, 1, 2, 3. */
+const xsFrom = (start: number) => [start, start + 1, start + 2, start + 3];
+const fits = (ln: Line, xs: number[]) => xs.every((x) => Math.abs(yAt(ln, x)) <= LIM - 1) && Math.abs(ln.k) <= LIM;
 
 function graphing(): Problem {
-  const special = Math.random() < 0.25;
+  const roll = Math.random();
   const slopes = [-3, -2, -1, 1, 2, 3];
-  if (!special) {
+  if (roll < 0.8) {
     for (;;) {
-      const x0 = R(-4, 4), y0 = R(-4, 4);
+      const start = R(-2, 1);
+      const xs = xsFrom(start);
+      const x0 = R(start, start + 3), y0 = R(-5, 5);
       const m1 = pick(slopes), m2 = pick(slopes);
       const a: Line = { m: m1, k: y0 - m1 * x0 }, b: Line = { m: m2, k: y0 - m2 * x0 };
-      if (m1 === m2 || Math.abs(a.k) > 7 || Math.abs(b.k) > 7) continue;
-      if (Math.random() < 0.5) b.std = toStd(b, pick([1, -1]));
+      if (m1 === m2 || !fits(a, xs) || !fits(b, xs)) continue;
+      if (Math.random() < 0.35) b.std = toStd(b, pick([1, -1]));
       const check = (ln: Line) =>
         ln.std ? checkLine(ln.std[0], ln.std[1], ln.std[2], x0, y0) : `${N(y0)}${EQ}${join([[ln.m, `(${N(x0)})`], [ln.k, '']])} ✓`;
-      return {
-        inst: 'Solve simultaneously using the graph. Read off where the lines cross.',
-        q: `<div class="gq">${linesSVG(a, b, false)}<div class="glegend"><span><span class="key c1"></span>${lineEq(a)}</span><span><span class="key c2"></span>${lineEq(b)}</span></div></div>`,
-        sample: system(lineEq(a), lineEq(b)),
-        lhs: '',
+      return tableProblem(a, b, xs, false, {
+        inst2: 'Step 2 of 2: the points are plotted. Where do the lines cross?',
         ans: F(x0),
         kind: 'pair',
         pair: [F(x0), F(y0)],
-        work: [
-          { l: '', r: '', rows: [lineRow(a, '…. (1)'), lineRow(b, '…. (2)')] },
-          St('Find the point where the two lines cross and read its coordinates from the grid.', { full: `(${N(x0)}, ${N(y0)})` }),
-          St('Check the point in equation (1).', { full: check(a) }),
-          St('Check the point in equation (2).', { full: check(b) }),
+        hit: [x0, y0],
+        steps: [
+          St(`The lines cross at (${N(x0)}, ${N(y0)}). Both tables give ${V('y')}${EQ}${N(y0)} when ${V('x')}${EQ}${N(x0)}.`, {
+            full: `(${N(x0)}, ${N(y0)})`,
+          }),
+          St('Check the point in both equations.', {
+            full: `${check(a)}<span class="tag">(1)</span><br>${check(b)}<span class="tag">(2)</span>`,
+          }),
           solutionStep(x0, y0),
         ],
-      };
+      });
     }
   }
   const options = ['One solution', 'No solution', 'Infinitely many solutions'];
-  for (;;) {
-    const m = pick(slopes), k1 = R(-5, 5);
-    const a: Line = { m, k: k1 };
-    if (Math.random() < 0.5) {
-      const k2 = R(-5, 5);
-      if (k2 === k1) continue;
-      const b: Line = { m, k: k2 };
-      if (Math.random() < 0.5) b.std = toStd(b, pick([1, 2]));
-      return {
-        inst: 'How many solutions do these simultaneous equations have? Use the graph.',
-        q: `<div class="gq">${linesSVG(a, b, false)}<div class="glegend"><span><span class="key c1"></span>${lineEq(a)}</span><span><span class="key c2"></span>${lineEq(b)}</span></div></div>`,
-        sample: system(lineEq(a), lineEq(b)),
-        lhs: '',
+  const inst2 = 'Step 2 of 2: the lines are plotted. How many solutions are there?';
+  if (roll < 0.9) {
+    for (;;) {
+      const xs = xsFrom(R(-2, 1));
+      const m = pick(slopes);
+      const a: Line = { m, k: R(-5, 5) }, b: Line = { m, k: R(-5, 5) };
+      if (a.k === b.k || !fits(a, xs) || !fits(b, xs)) continue;
+      if (Math.random() < 0.35) b.std = toStd(b, pick([1, -1]));
+      return tableProblem(a, b, xs, false, {
+        inst2,
         ans: F(0),
         kind: 'choice',
         choices: options,
         correct: 1,
-        work: [
-          { l: '', r: '', rows: [lineRow(a, '…. (1)'), lineRow(b, '…. (2)')] },
-          St(`Write both with ${V('y')} as the subject and compare.`, {
-            rows: [
-              { l: V('y'), r: join([[m, V('x')], [k1, '']]) },
-              { l: V('y'), r: join([[m, V('x')], [k2, '']]) },
-            ],
-          }),
-          St(`Same gradient (${N(m)}) but different ${V('y')}-intercepts (${N(k1)} and ${N(k2)}), so the lines are parallel and never meet.`, {
-            full: 'No solution',
-          }),
+        steps: [
+          St(
+            `The lines are parallel: both have gradient ${N(m)} (${V('y')} changes by ${N(m)} each time ${V('x')} goes up by 1) but they cross the ${V('y')}-axis at different places (${N(a.k)} and ${N(b.k)}). They never meet.`,
+            { full: 'No solution' },
+          ),
         ],
-      };
+      });
     }
-    const scale = pick([2, 3, -2]);
-    const b: Line = { m, k: k1, std: toStd(a, scale) };
-    return {
-      inst: 'How many solutions do these simultaneous equations have? Use the graph.',
-      q: `<div class="gq">${linesSVG(a, b, true)}<div class="glegend"><span><span class="key c1"></span>${lineEq(a)}</span><span><span class="key c2"></span>${lineEq(b)}</span></div></div>`,
-      sample: system(lineEq(a), lineEq(b)),
-      lhs: '',
+  }
+  for (;;) {
+    const xs = xsFrom(R(-2, 1));
+    const a: Line = { m: pick(slopes), k: R(-5, 5) };
+    if (!fits(a, xs)) continue;
+    const scale = pick([2, -2, 3]);
+    const b: Line = { m: a.m, k: a.k, std: toStd(a, scale) };
+    return tableProblem(a, b, xs, true, {
+      inst2,
       ans: F(0),
       kind: 'choice',
       choices: options,
       correct: 2,
-      work: [
-        { l: '', r: '', rows: [lineRow(a, '…. (1)'), lineRow(b, '…. (2)')] },
-        St(`Divide (2) by ${N(scale)} and make ${V('y')} the subject.`, { l: V('y'), r: join([[m, V('x')], [k1, '']]) }),
-        St('That is exactly equation (1). The lines lie on top of each other (coincident), so every point on the line works.', {
+      steps: [
+        St('Both tables are exactly the same, so the lines lie on top of each other (coincident). Every point on the line works.', {
           full: 'Infinitely many solutions',
         }),
       ],
-    };
+    });
   }
 }
 

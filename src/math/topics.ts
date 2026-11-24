@@ -45,6 +45,12 @@ export interface Problem {
   /** Options and the correct index for kind 'choice'. */
   choices?: string[];
   correct?: number;
+  /**
+   * A table-of-values step before the answer: the question holds `input.tc` cells
+   * (data-l = table, data-j = column) to fill with `ys`. Once they're right, `inst2` replaces `inst`.
+   */
+  table?: { xs: number[]; ys: number[][] };
+  inst2?: string;
   work: Step[];
 }
 

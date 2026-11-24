@@ -393,3 +393,45 @@ sub{font-size:.6em}
   .choices{grid-template-columns:1fr 1fr}
   .choice{font-size:13px;padding:8px 10px}
 }
+
+/* ---------- graphs: table of values, then plot ---------- */
+.tq{gap:clamp(12px,3.5cqw,36px)}
+.tq svg{height:96cqh;max-width:50cqw}
+.tside{display:flex;flex-direction:column;gap:clamp(8px,5cqh,26px);font-size:clamp(14px,min(5.2cqh,2.9cqw),24px);text-align:left}
+.teq{white-space:nowrap;margin-bottom:.35em;display:flex;align-items:center}
+.teq .key{display:inline-block;width:18px;height:3px;margin-right:10px;flex:none}
+.teq .key.c1{background:var(--teal)}
+.teq .key.c2{background:var(--pen-red)}
+.teq .lbl{vertical-align:0}
+.vt{border-collapse:collapse;font-family:var(--math)}
+.vt th,.vt td{border:1.5px solid var(--line-2);padding:0;text-align:center;min-width:2.3em;height:1.8em;font-weight:400}
+.vt th{background:var(--sunk);min-width:1.6em}
+.vt input{display:block;width:2.3em;height:1.8em;border:0;background:var(--surface);color:var(--ink);font:inherit;text-align:center;padding:0;outline:0;border-radius:0;transition:background .25s}
+.vt input:focus{outline:2px solid var(--teal);outline-offset:-2px}
+.vt input.ok{background:var(--lime-soft);color:var(--ink);opacity:1}
+.vt input.bad{background:var(--bad-soft);color:var(--bad)}
+.vt input.fix{background:var(--surface);color:var(--teal);font-weight:600;opacity:1}
+.vt input:disabled{-webkit-text-fill-color:currentColor;opacity:1}
+.tside.shake{animation:shake .38s cubic-bezier(.36,.07,.19,.97)}
+.vt.mini{font-size:.9em;margin:2px auto}
+.vt.mini td,.vt.mini th{height:1.6em;min-width:2em}
+.gsv .pt1{fill:var(--teal)}
+.gsv .pt2{fill:var(--pen-red)}
+.gsv .hit{fill:none;stroke:var(--ink);stroke-width:.12}
+.tq .plot{visibility:hidden}
+.tq.plotted .plot{visibility:visible}
+.tq.plotted .pt1,.tq.plotted .pt2{transform-box:fill-box;transform-origin:center;animation:ptIn .32s cubic-bezier(.2,1.6,.4,1) calc(var(--d) * 90ms) both}
+.tq.plotted .ln,.tq.plotted .ln2:not(.dash){stroke-dasharray:1;animation:lnIn .55s cubic-bezier(.4,0,.2,1) calc(var(--d) * 90ms) both}
+.tq.plotted .ln2.dash{animation:fadeIn .5s calc(var(--d) * 90ms) both}
+@keyframes ptIn{from{transform:scale(0)}to{transform:scale(1)}}
+@keyframes lnIn{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.wg .gsv.mini{height:10em;width:auto;display:inline-block;vertical-align:middle}
+@container (max-aspect-ratio:7/5){
+  .tq{flex-direction:column;gap:8px}
+  .tq svg{height:54cqh;max-width:96cqw}
+  .tside{flex-direction:row;gap:14px;font-size:clamp(12px,min(4.6cqh,3.1cqw),20px)}
+}
+/* while the working is open it has its own graph: keep just the student's tables, side by side */
+.solving .tq svg{display:none}
+.solving .tside{flex-direction:row;gap:clamp(10px,3cqw,28px);font-size:clamp(9px,min(17cqh,2.4cqw),20px)}
