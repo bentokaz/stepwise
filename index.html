@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stepwise</title>
+<meta name="description" content="Math practice with fresh questions every time, two tries, step-by-step working, a notepad and a graphing calculator.">
+<meta name="theme-color" content="#0F5C58">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+<!-- ================= MENU ================= -->
+<div class="view" id="menu" hidden>
+  <div class="menu-in">
+    <div class="mtop">
+      <div class="brand">
+        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="15" width="8" height="10" fill="var(--lime)"/><rect x="9" y="8" width="8" height="17" fill="var(--teal)"/><rect x="17" y="1" width="8" height="24" fill="var(--ink)"/></svg>
+        Stepwise
+      </div>
+      <div class="mstats">
+        <div><span class="eyebrow">XP</span><b class="tnum" id="mXp">0</b></div>
+        <div><span class="eyebrow">Best streak</span><b class="tnum" id="mBest">0</b></div>
+        <div><span class="eyebrow">Mastered</span><b class="tnum" id="mDone">0</b></div>
+      </div>
+    </div>
+    <div class="hero">
+      <h1>Pick a lesson</h1>
+      <p>Every question is generated fresh. You get two tries, then Stepwise walks you through the working and moves on. Score 5 points to master a lesson.</p>
+    </div>
+    <div id="contSlot"></div>
+    <div id="groups" style="display:flex;flex-direction:column;gap:28px"></div>
+  </div>
+</div>
+
+<!-- ================= PRACTICE ================= -->
+<div class="view" id="practice" hidden>
+  <header class="bar">
+    <button class="back" id="back"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3L5 8l5 5"/></svg><span class="lbl">Lessons</span></button>
+    <div class="where"><span class="eyebrow" id="grp"></span><span class="t" id="tname"></span></div>
+    <div class="prog" title="Score"><div class="segs" id="segs"></div><span class="sc tnum" id="scoreTxt">0/5</span></div>
+    <div class="mini" title="Streak"><span class="dia dim" id="dia"></span><span class="eyebrow">Streak</span><b class="tnum" id="streak">0</b></div>
+    <div class="mini" title="XP"><span class="eyebrow">XP</span><b class="tnum" id="xp">0</b></div>
+    <button class="icon" id="soundBtn" title="Sound on" aria-label="Toggle sound"></button>
+  </header>
+
+  <div class="work">
+    <section class="prob" id="prob" aria-label="Problem">
+      <div class="ptop">
+        <span class="qn" id="qn">Question 1</span>
+        <div class="pips" id="pips"><i></i><i></i><span id="attTxt">Attempt 1 of 2</span></div>
+        <span class="sp"></span>
+        <button class="btn ghost sm" id="exBtn">Example</button>
+        <button class="btn ghost sm" id="skipBtn">Skip</button>
+      </div>
+      <div class="qwrap" id="qwrap">
+        <div class="inst" id="inst"></div>
+        <div class="stage"><div class="qmath" id="qmath"></div></div>
+      </div>
+      <div class="arow">
+        <span class="lhs" id="lhs"></span>
+        <div class="field" id="field">
+          <input id="inp" autocomplete="off" spellcheck="false" aria-label="Your answer">
+          <span class="preview" id="preview"></span>
+          <svg class="mark" viewBox="0 0 28 28" fill="none"><path d="M6 14.5l5.5 5.5L22 8.5" stroke="var(--teal)" stroke-width="3" stroke-linecap="square"/></svg>
+        </div>
+        <button class="kbtn" id="kbtn" aria-pressed="false" aria-label="Keypad" title="Keypad"><svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x=".7" y=".7" width="16.6" height="12.6"/><path d="M4 4.5h1M8.5 4.5h1M13 4.5h1M4 7.5h1M8.5 7.5h1M13 7.5h1M5 10.5h8"/></svg></button>
+        <button class="btn primary submit" id="submit">Submit</button>
+      </div>
+      <div class="keypad" id="keypad" hidden></div>
+      <div class="fb" id="fb"></div>
+    </section>
+
+    <section class="tools" aria-label="Tools">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-tab="note">Notes</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="graph">Graph</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="ex">Examples</button>
+      </div>
+      <div class="pane" id="pane-note">
+        <div class="toolbar">
+          <div class="seg"><button aria-pressed="true" data-mode="draw">Draw</button><button aria-pressed="false" data-mode="type">Type</button></div>
+          <span class="sepv"></span>
+          <span id="drawTools" style="display:contents">
+            <button class="sw" data-color="ink" aria-pressed="true" title="Ink"><i style="background:var(--pen-ink)"></i></button>
+            <button class="sw" data-color="teal" aria-pressed="false" title="Teal"><i style="background:var(--pen-teal)"></i></button>
+            <button class="sw" data-color="red" aria-pressed="false" title="Red"><i style="background:var(--pen-red)"></i></button>
+            <button class="ib" id="eraser" aria-pressed="false" title="Eraser"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 14h8M2.5 10.5l6-6 4 4-5 5H5z"/></svg></button>
+            <button class="ib" id="undo" title="Undo (Ctrl+Z)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3L2 6l3 3"/><path d="M2 6h7.5a4 4 0 010 8H6"/></svg></button>
+          </span>
+          <button class="ib" id="clearPad" title="Clear notes"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M6.5 4V2.5h3V4M4.5 4l.7 9.5h5.6l.7-9.5"/></svg></button>
+          <label class="ac" title="Clear notes when a new question loads"><input type="checkbox" id="autoclear" checked>Auto-clear</label>
+        </div>
+        <div class="padwrap" id="padwrap">
+          <canvas id="pad"></canvas>
+          <div class="padhint" id="padhint">Work it out here with a mouse, pen or finger</div>
+          <textarea id="typed" hidden placeholder="Type your working…"></textarea>
+        </div>
+      </div>
+      <div class="pane" id="pane-graph" hidden>
+        <div class="gx" id="gx"></div>
+        <div class="gwrap" id="gwrap">
+          <canvas id="gcv"></canvas>
+          <div class="gbtns"><button id="gin" title="Zoom in">+</button><button id="gout" title="Zoom out">−</button><button id="ghome" title="Reset view"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 1v3M7 10v3M1 7h3M10 7h3"/><circle cx="7" cy="7" r="2.5"/></svg></button></div>
+        </div>
+      </div>
+      <div class="pane" id="pane-ex" hidden><div class="ex" id="ex"></div></div>
+    </section>
+  </div>
+</div>
+
+<div id="fx"></div>
+<div class="overlay" id="done" hidden>
+  <div class="done-card" role="dialog" aria-labelledby="doneTitle">
+    <div class="done-badge"><svg width="44" height="44" viewBox="0 0 44 44" fill="none"><path d="M9 23l9 9L35 13" stroke="var(--on-lime)" stroke-width="5" stroke-linecap="square"/></svg></div>
+    <span class="eyebrow">Lesson mastered</span>
+    <h2 id="doneTitle"></h2>
+    <div class="dstats">
+      <div><span class="eyebrow">Accuracy</span><b class="tnum" id="dAcc"></b></div>
+      <div><span class="eyebrow">Best streak</span><b class="tnum" id="dStreak"></b></div>
+      <div><span class="eyebrow">XP earned</span><b class="tnum" id="dXp"></b></div>
+    </div>
+    <div class="drow">
+      <button class="btn ghost" id="toMenu">All lessons</button>
+      <button class="btn ghost" id="keepGoing">Keep practicing</button>
+      <button class="btn primary" id="nextTopic">Next lesson →</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

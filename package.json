@@ -1,0 +1,20 @@
+{
+  "name": "stepwise",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Math practice with procedurally generated questions, two tries, worked solutions, a notepad and a graphing calculator.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "deploy": "node scripts/deploy.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.1.4"
+  }
+}
