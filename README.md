@@ -34,6 +34,10 @@ npm run deploy
 
 This runs the tests, builds the site and force-pushes `dist/` to the `gh-pages` branch, which GitHub Pages serves at https://bentokaz.github.io/stepwise/.
 
+## Feedback
+
+The **Give feedback** button (lessons page and practice bar) sends a report to a Google Apps Script that adds it as a row in a Google Sheet. Senders need no account. Setup is in [`apps-script/README.md`](apps-script/README.md); the script's URL goes in `src/config.ts`. Reports that fail to send are kept in the browser and retried on the next visit.
+
 ## Adding a lesson
 
 Add an entry to `TOPICS` in `src/math/topics.ts`. Its `gen()` returns the question, the answer and the lines of working. The tests check every lesson automatically.

@@ -22,10 +22,13 @@
         <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="15" width="8" height="10" fill="var(--lime)"/><rect x="9" y="8" width="8" height="17" fill="var(--teal)"/><rect x="17" y="1" width="8" height="24" fill="var(--ink)"/></svg>
         Stepwise
       </div>
+      <div class="mright">
+      <button class="btn ghost" data-feedback><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2.5h12v8.5H6.5L3 14v-3H2z"/></svg>Give feedback</button>
       <div class="mstats">
         <div><span class="eyebrow">XP</span><b class="tnum" id="mXp">0</b></div>
         <div><span class="eyebrow">Best streak</span><b class="tnum" id="mBest">0</b></div>
         <div><span class="eyebrow">Mastered</span><b class="tnum" id="mDone">0</b></div>
+      </div>
       </div>
     </div>
     <div class="hero">
@@ -45,6 +48,7 @@
     <div class="prog" title="Score"><div class="segs" id="segs"></div><span class="sc tnum" id="scoreTxt">0/5</span></div>
     <div class="mini" title="Streak"><span class="dia dim" id="dia"></span><span class="eyebrow">Streak</span><b class="tnum" id="streak">0</b></div>
     <div class="mini" title="XP"><span class="eyebrow">XP</span><b class="tnum" id="xp">0</b></div>
+    <button class="fbtn" data-feedback title="Give feedback"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2.5h12v8.5H6.5L3 14v-3H2z"/></svg><span>Feedback</span></button>
     <button class="icon" id="soundBtn" title="Sound on" aria-label="Toggle sound"></button>
   </header>
 
@@ -110,6 +114,53 @@
       </div>
       <div class="pane" id="pane-ex" hidden><div class="ex" id="ex"></div></div>
     </section>
+  </div>
+</div>
+
+<div class="overlay" id="fbk" hidden>
+  <div class="fbk" role="dialog" aria-modal="true" aria-labelledby="fbkTitle">
+    <div class="fbk-h">
+      <h2 id="fbkTitle">Give feedback</h2>
+      <button type="button" class="icon" id="fbkClose" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button>
+    </div>
+    <form id="fbkForm" novalidate>
+      <div class="fbk-b">
+        <fieldset class="kinds">
+          <legend class="eyebrow">What kind of feedback?</legend>
+          <label class="kind"><input type="radio" name="fbtype" value="bug" checked>
+            <span class="k-t"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="10"/><path d="M7 5V3h4v2M5 9H2M16 9h-3M5 13H2.5M15.5 13H13M9 8v5"/></svg>Bug</span>
+            <small>Something broke or looks wrong</small></label>
+          <label class="kind"><input type="radio" name="fbtype" value="feature">
+            <span class="k-t"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2v14M2 9h14"/></svg>Feature request</span>
+            <small>An idea or something you want</small></label>
+          <label class="kind"><input type="radio" name="fbtype" value="other">
+            <span class="k-t"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h14v9H7l-4 3v-3H2z"/></svg>Other</span>
+            <small>Anything else</small></label>
+        </fieldset>
+        <label class="fld"><span class="eyebrow">Your report</span>
+          <textarea id="fbkMsg" rows="5" maxlength="4000"></textarea>
+          <span class="fcount tnum" id="fbkCount">0 / 4000</span></label>
+        <label class="fld"><span class="eyebrow">Email <em>optional, only if you want a reply</em></span>
+          <input type="email" id="fbkEmail" maxlength="200" autocomplete="email" placeholder="you@example.com"></label>
+        <input type="text" name="website" id="fbkHp" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="techrow">
+          <label class="chk"><input type="checkbox" id="fbkTech" checked> Include technical info</label>
+          <button type="button" class="linkbtn" id="fbkTechShow" aria-expanded="false" aria-controls="fbkTechBox">See what’s included</button>
+        </div>
+        <pre class="techbox" id="fbkTechBox" hidden></pre>
+        <p class="ferr" id="fbkErr" role="alert"></p>
+      </div>
+      <div class="fbk-f">
+        <span class="fnote">No account needed. Stepwise doesn’t record your name or IP address.</span>
+        <button class="btn primary" id="fbkSend" type="submit">Send</button>
+      </div>
+    </form>
+    <div class="fbk-done" id="fbkDone" hidden>
+      <div class="done-badge"><svg width="40" height="40" viewBox="0 0 44 44" fill="none"><path d="M9 23l9 9L35 13" stroke="var(--on-lime)" stroke-width="5" stroke-linecap="square" stroke-dasharray="60" stroke-dashoffset="60"/></svg></div>
+      <h3 id="fbkDoneTitle">Sent. Thank you.</h3>
+      <p id="fbkDoneText"></p>
+      <button class="btn ghost" id="fbkDoneClose" type="button">Close</button>
+    </div>
   </div>
 </div>
 
