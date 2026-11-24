@@ -89,6 +89,24 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     $('#attTxt').textContent = phase === 'ask' ? `Attempt ${attempt} of 2` : state === 'ok' ? 'Solved' : 'Out of tries';
   }
 
+  /* answer modes: one number, an (x, y) pair, or tapping one option */
+  const pairEl = $('#pair');
+  const px = $<HTMLInputElement>('#px');
+  const py = $<HTMLInputElement>('#py');
+  const choicesEl = $('#choices');
+  const kbtn = $('#kbtn');
+  let activeInput: HTMLInputElement = inp;
+  for (const el of [inp, px, py]) el.addEventListener('focus', () => (activeInput = el));
+  const mode = () => P?.kind ?? 'num';
+  /** The element that shakes, glows and bursts for the current answer mode. */
+  const answerBox = () => (mode() === 'pair' ? pairEl : field);
+
+  function renderChoices() {
+    choicesEl.innerHTML = (P!.choices ?? [])
+      .map((c, i) => `<button type="button" class="choice" data-i="${i}"><b>${'ABCD'[i]}</b><span>${c}</span></button>`)
+      .join('');
+  }
+
   function newQ(first = false) {
     const load = () => {
       let np: Problem;
@@ -99,22 +117,39 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
       phase = 'ask';
       qnum++;
       lastWrong = '';
+      const m = mode();
       $('#inst').innerHTML = P.inst;
       $('#qmath').innerHTML = P.q;
+      // "explain the step": keep the highlighted step in view
+      requestAnimationFrame(() => {
+        const ex = $('#qmath').querySelector<HTMLElement>('.exq');
+        if (ex) ex.scrollTop = ex.scrollHeight;
+      });
       $('#lhs').innerHTML = P.lhs;
-      $('#lhs').hidden = !P.lhs;
+      $('#lhs').hidden = !P.lhs || m !== 'num';
       $('#qn').textContent = `Question ${qnum}`;
-      inp.value = '';
-      inp.disabled = false;
+      field.hidden = m !== 'num';
+      pairEl.hidden = m !== 'pair';
+      choicesEl.hidden = m !== 'choice';
+      kbtn.hidden = m === 'choice';
+      if (m === 'choice') keypad.hidden = true;
+      for (const el of [inp, px, py]) {
+        el.value = '';
+        el.disabled = false;
+      }
       field.className = 'field';
+      pairEl.className = 'pair';
+      if (m === 'choice') renderChoices();
       updPreview();
       fb.innerHTML = '';
       prob.classList.remove('solving');
       setPips();
       submit.textContent = 'Submit';
       submit.className = 'btn primary submit';
+      submit.hidden = m === 'choice';
       if ($<HTMLInputElement>('#autoclear').checked && !first) pad.clear();
-      if (matchMedia('(hover:hover)').matches) inp.focus({ preventScroll: true });
+      activeInput = m === 'pair' ? px : inp;
+      if (m !== 'choice' && matchMedia('(hover:hover)').matches) activeInput.focus({ preventScroll: true });
       qwrap.classList.remove('slide-out');
       if (!first && !reduceMotion()) {
         qwrap.classList.add('slide-in');
@@ -138,92 +173,154 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     updPreview();
     field.classList.remove('bad');
   });
+  for (const el of [px, py]) el.addEventListener('input', () => pairEl.classList.remove('bad'));
 
   const msg = (kind: string, html: string) => (fb.innerHTML = `<div class="msg ${kind}">${html}</div>`);
+  const escapeHTML = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const FORMAT_HELP = `<span>Enter a number like <b>7</b>, <b>−3</b>, <b>0.25</b> or <b>5/8</b>. That didn’t use a try.</span>`;
 
-  function check() {
-    if (!P) return;
-    if (phase !== 'ask') return newQ();
+  /** Reads the typed answer: whether it's right and how to show it, or null after showing a hint (no try used). */
+  function readTyped(): { right: boolean; shown: string } | null {
+    if (mode() === 'pair') {
+      const rx = px.value.trim(), ry = py.value.trim();
+      if (!rx || !ry) {
+        (rx ? py : px).focus();
+        replayClass(pairEl, 'shake');
+        return null;
+      }
+      const a = parseAnswer(rx), b = parseAnswer(ry);
+      if (!a.ok || !b.ok) {
+        msg('nudge', FORMAT_HELP);
+        return null;
+      }
+      const [wx, wy] = P!.pair!;
+      const right = feq(a.f, wx) && feq(b.f, wy);
+      if (right && !(a.simplified && b.simplified)) {
+        msg('nudge', `<span>Right values, but simplify them fully first. That didn’t use a try.</span>`);
+        return null;
+      }
+      return { right, shown: escapeHTML(`x = ${clean(rx)}, y = ${clean(ry)}`).replace(/-/g, MINUS) };
+    }
     const raw = inp.value.trim();
     if (!raw) {
       inp.focus();
       replayClass(field, 'shake');
-      return;
+      return null;
     }
     const p = parseAnswer(raw);
-    if (!p.ok)
-      return msg(
-        'nudge',
-        p.reason === 'zero'
-          ? `<span>A fraction can’t have 0 on the bottom. That didn’t use a try.</span>`
-          : `<span>Enter a number like <b>7</b>, <b>−3</b>, <b>0.25</b> or <b>5/8</b>. That didn’t use a try.</span>`,
-      );
-    if (feq(p.f, P.ans) && !p.simplified) return msg('nudge', `<span>Right value, but simplify it fully first. That didn’t use a try.</span>`);
+    if (!p.ok) {
+      msg('nudge', p.reason === 'zero' ? `<span>A fraction can’t have 0 on the bottom. That didn’t use a try.</span>` : FORMAT_HELP);
+      return null;
+    }
+    if (feq(p.f, P!.ans) && !p.simplified) {
+      msg('nudge', `<span>Right value, but simplify it fully first. That didn’t use a try.</span>`);
+      return null;
+    }
+    return { right: feq(p.f, P!.ans), shown: escapeHTML(clean(raw)).replace(/-/g, MINUS) };
+  }
 
+  function lockInputs() {
+    for (const el of [inp, px, py]) el.disabled = true;
+    choicesEl.querySelectorAll<HTMLButtonElement>('.choice').forEach((b) => (b.disabled = true));
+  }
+
+  function check() {
+    if (!P) return;
+    if (phase !== 'ask') return newQ();
+    if (mode() === 'choice') return;
+    const res = readTyped();
+    if (!res) return;
+    if (res.right) onRight(answerBox());
+    else onWrong(res.shown);
+  }
+
+  function onRight(box: HTMLElement) {
     const s = progress();
-    if (feq(p.f, P.ans)) {
-      phase = 'solved';
-      s.total++;
-      s.right++;
-      S.streak++;
-      S.best = Math.max(S.best, S.streak);
-      s.best = Math.max(s.best, S.streak);
-      const firstTry = attempt === 1;
-      const gain = firstTry ? 10 + Math.min(S.streak - 1, 5) * 2 : 5;
-      S.xp += gain;
-      s.xp += gain;
-      const before = s.pts;
-      s.pts = Math.min(GOAL, s.pts + (firstTry ? 1 : 0.5));
-      field.className = 'field ok';
-      inp.disabled = true;
-      setPips('ok');
-      sfx.win();
-      if (reduceMotion()) {
-        burstAt(field);
-        floatXP(gain, $('#xp'));
-      } else bigWin(field, gain, S.streak, firstTry);
+    phase = 'solved';
+    s.total++;
+    s.right++;
+    S.streak++;
+    S.best = Math.max(S.best, S.streak);
+    s.best = Math.max(s.best, S.streak);
+    const firstTry = attempt === 1;
+    const gain = firstTry ? 10 + Math.min(S.streak - 1, 5) * 2 : 5;
+    S.xp += gain;
+    s.xp += gain;
+    const before = s.pts;
+    s.pts = Math.min(GOAL, s.pts + (firstTry ? 1 : 0.5));
+    box.classList.remove('bad');
+    box.classList.add('ok');
+    lockInputs();
+    setPips('ok');
+    sfx.win();
+    if (reduceMotion()) {
+      burstAt(box);
+      floatXP(gain, $('#xp'));
+    } else bigWin(box, gain, S.streak, firstTry);
+    msg(
+      'good',
+      `<div><b>${firstTry ? pick(['Correct.', 'Nailed it.', 'Clean.', 'That’s it.']) : 'Correct on the second try.'}</b> <span class="sub">+${gain} XP${S.streak > 1 ? ` · ${S.streak} in a row` : ''}</span></div><button class="linkbtn" id="seeW">See the working</button>`,
+    );
+    $('#seeW').onclick = () => {
+      fb.innerHTML = '';
+      prob.classList.add('solving');
+      fb.appendChild(walkthrough(P!, { mode: 'solution', all: true }));
+    };
+    submit.hidden = false;
+    toNext();
+    renderStats(true);
+    save();
+    if (before < GOAL && s.pts >= GOAL && !s.done) {
+      s.done = true;
+      save();
+      setTimeout(showDone, reduceMotion() ? 600 : 1500);
+    }
+  }
+
+  function onWrong(shownHTML: string, box: HTMLElement = answerBox()) {
+    const s = progress();
+    sfx.bad();
+    replayClass(box, 'shake');
+    box.classList.add('bad');
+    lastWrong = shownHTML;
+    if (attempt === 1) {
+      attempt = 2;
+      setPips();
       msg(
-        'good',
-        `<div><b>${firstTry ? pick(['Correct.', 'Nailed it.', 'Clean.', 'That’s it.']) : 'Correct on the second try.'}</b> <span class="sub">+${gain} XP${S.streak > 1 ? ` · ${S.streak} in a row` : ''}</span></div><button class="linkbtn" id="seeW">See the working</button>`,
+        'retry',
+        mode() === 'choice'
+          ? `<span><b>Not that one.</b> One more try.</span>`
+          : `<span><b>Not quite.</b> One more try. Check your signs and your arithmetic.</span>`,
       );
-      $('#seeW').onclick = () => {
-        fb.innerHTML = '';
-        prob.classList.add('solving');
-        fb.appendChild(walkthrough(P!, { mode: 'solution', all: true }));
-      };
+      if (mode() === 'num') inp.select();
+      if (mode() === 'pair') px.select();
+    } else {
+      phase = 'revealed';
+      s.total++;
+      S.streak = 0;
+      lockInputs();
+      if (mode() === 'choice') choicesEl.querySelector(`[data-i="${P!.correct}"]`)?.classList.add('answer');
+      setPips('out');
+      fb.innerHTML = '';
+      prob.classList.add('solving');
+      fb.appendChild(walkthrough(P!, { mode: 'reveal', auto: true, wrongHTML: lastWrong }));
+      submit.hidden = false;
       toNext();
       renderStats(true);
       save();
-      if (before < GOAL && s.pts >= GOAL && !s.done) {
-        s.done = true;
-        save();
-        setTimeout(showDone, reduceMotion() ? 600 : 1500);
-      }
-    } else {
-      sfx.bad();
-      replayClass(field, 'shake');
-      field.classList.add('bad');
-      lastWrong = raw;
-      if (attempt === 1) {
-        attempt = 2;
-        setPips();
-        msg('retry', `<span><b>Not quite.</b> One more try. Check your signs and your arithmetic.</span>`);
-        inp.select();
-      } else {
-        phase = 'revealed';
-        s.total++;
-        S.streak = 0;
-        inp.disabled = true;
-        setPips('out');
-        fb.innerHTML = '';
-        prob.classList.add('solving');
-        fb.appendChild(walkthrough(P, { mode: 'reveal', auto: true, wrong: clean(lastWrong) }));
-        toNext();
-        renderStats(true);
-        save();
-      }
     }
   }
+
+  choicesEl.addEventListener('click', (e) => {
+    const b = (e.target as Element).closest<HTMLButtonElement>('.choice');
+    if (!b || b.disabled || !P || phase !== 'ask') return;
+    const i = Number(b.dataset.i);
+    if (i === P.correct) onRight(b);
+    else {
+      b.disabled = true;
+      onWrong(P.choices![i], b);
+    }
+  });
 
   function toNext() {
     submit.textContent = 'Next →';
@@ -232,12 +329,13 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   }
 
   submit.onclick = check;
-  inp.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+  for (const el of [inp, px, py])
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
       e.preventDefault();
+      if (el === px && !py.value.trim() && phase === 'ask') return py.focus();
       check();
-    }
-  });
+    });
   document.addEventListener('keydown', (e) => {
     if (api.active && e.key === 'Enter' && phase !== 'ask' && !(e.target as Element).matches('textarea,input,button') && overlay.hidden) {
       e.preventDefault();
@@ -258,13 +356,14 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   ).join('');
   keypad.addEventListener('click', (e) => {
     const k = (e.target as Element).closest<HTMLElement>('button')?.dataset.k;
-    if (!k || (inp.disabled && k !== 'Enter')) return;
+    const el = activeInput;
+    if (!k || (el.disabled && k !== 'Enter')) return;
     sfx.tap();
     if (k === 'Enter') return check();
-    if (k === 'Clear') inp.value = '';
-    else if (k === '⌫') inp.value = inp.value.slice(0, -1);
-    else inp.value += k === '−' ? '-' : k;
-    inp.dispatchEvent(new Event('input'));
+    if (k === 'Clear') el.value = '';
+    else if (k === '⌫') el.value = el.value.slice(0, -1);
+    else el.value += k === '−' ? '-' : k;
+    el.dispatchEvent(new Event('input'));
   });
   $('#kbtn').onclick = (e) => {
     const show = keypad.hidden;

@@ -4,14 +4,26 @@
  */
 import { F, NZ, R, gcd, lcm, pick, type Frac } from './core';
 import { EQ, FR, MINUS as M, N, V, coef, dec, fDec, fH, graphSVG, o, paren, signed } from './html';
+import { SIM_TOPICS, pairHTML } from './simultaneous';
 
-/** One line of working. The first line is the starting equation; later lines explain the move in `why`. */
+/** One equation line in the working: left side, right side, and an optional label such as "(3) {(1) × 5}". */
+export interface Row {
+  l: string;
+  r: string;
+  tag?: string;
+}
+
+/** One step of working. The first step is the starting point; later steps explain the move in `why`. */
 export interface Step {
   l: string;
   r: string;
   why?: string;
   /** Operation applied to both sides, shown under each side. */
   op?: string;
+  /** Several equation lines instead of the single l = r line. */
+  rows?: Row[];
+  /** A centred line of text or maths, such as a check or the solution pair. */
+  full?: string;
 }
 
 export interface Problem {
@@ -26,6 +38,13 @@ export interface Problem {
   ans: Frac;
   /** Show the answer as a decimal instead of a fraction. */
   fmt?: 'dec';
+  /** How the answer is entered: one number (default), an (x, y) pair, or picking one option. */
+  kind?: 'num' | 'pair' | 'choice';
+  /** Answer for kind 'pair'. */
+  pair?: [Frac, Frac];
+  /** Options and the correct index for kind 'choice'. */
+  choices?: string[];
+  correct?: number;
   work: Step[];
 }
 
@@ -45,6 +64,7 @@ const St = (why: string, l: string, r: string, op?: string): Step => ({ why, l, 
 export const GOAL = 5;
 
 export const TOPICS: Topic[] = [
+  ...SIM_TOPICS,
   {
     id: 'mul',
     group: 'Equations',
@@ -248,6 +268,13 @@ export const TOPICS: Topic[] = [
   },
 ];
 
-export const ansHTML = (pr: Problem): string => (pr.fmt === 'dec' ? fDec(pr.ans) : fH(pr.ans));
+export const ansHTML = (pr: Problem): string =>
+  pr.kind === 'pair' && pr.pair
+    ? pairHTML(pr.pair)
+    : pr.kind === 'choice' && pr.choices
+      ? pr.choices[pr.correct ?? 0]
+      : pr.fmt === 'dec'
+        ? fDec(pr.ans)
+        : fH(pr.ans);
 export const topicName = (t: Topic): string => t.name + (t.op ? ` (${t.op})` : '');
 export const findTopic = (id: string): Topic | undefined => TOPICS.find((t) => t.id === id);
