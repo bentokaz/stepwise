@@ -98,9 +98,9 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   let activeInput: HTMLInputElement = inp;
   for (const el of [inp, px, py]) el.addEventListener('focus', () => (activeInput = el));
   /** Table-of-values questions start on the tables; the answer comes after. */
-  let stage: 'table' | 'answer' = 'answer';
+  let stage: 'table' | 'plot' | 'answer' = 'answer';
   let cells: HTMLInputElement[] = [];
-  const mode = () => (stage === 'table' ? 'table' : (P?.kind ?? 'num'));
+  const mode = () => (stage !== 'answer' ? stage : (P?.kind ?? 'num'));
   const tableBox = () => $('#qmath').querySelector<HTMLElement>('.tside') ?? field;
   /** The element that shakes, glows and bursts for the current answer mode. */
   const answerBox = () => (mode() === 'pair' ? pairEl : mode() === 'table' ? tableBox() : field);
@@ -112,9 +112,9 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     field.hidden = m !== 'num';
     pairEl.hidden = m !== 'pair';
     choicesEl.hidden = m !== 'choice';
-    kbtn.hidden = m === 'choice';
-    if (m === 'choice') keypad.hidden = true;
-    submit.hidden = m === 'choice';
+    kbtn.hidden = m === 'choice' || m === 'plot';
+    if (m === 'choice' || m === 'plot') keypad.hidden = true;
+    submit.hidden = m === 'choice' || m === 'plot';
     if (m === 'choice') renderChoices();
   }
 
@@ -179,16 +179,148 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     return { right, shown: `(1) ${rows[0]} &nbsp;(2) ${rows[1]}` };
   }
 
-  function tablesDone() {
+  /* ---------- step 2 of 3: tap the grid to plot each table point ---------- */
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  let plotSvg: SVGSVGElement | null = null;
+  let ghost: SVGGElement | null = null;
+
+  /** Distinct table points still to plot. */
+  const plotPoints = () => [...new Set([...(plotSvg?.querySelectorAll<SVGCircleElement>('.plot circle') ?? [])].map((c) => c.dataset.p!))];
+  const plottedCount = () => plotPoints().filter((p) => plotSvg!.querySelector(`.plot circle.on[data-p="${p}"]`)).length;
+
+  function plotMsg(extra = '') {
+    const total = plotPoints().length;
+    msg(
+      extra ? 'retry' : 'good',
+      `<div>${extra || `<b>Tables right.</b>`} <span class="sub">Tap the grid (or press and slide on a touchscreen) to plot each point from your tables. ${plottedCount()} of ${total} plotted.</span></div><button class="linkbtn" id="autoPlot">Plot them for me</button>`,
+    );
+    $('#autoPlot').onclick = () => {
+      plot();
+      plotDone();
+    };
+  }
+
+  /** Grid coordinates (snapped to whole numbers) under a pointer, lifted `lift` px above it for fingers. */
+  function gridPoint(e: PointerEvent, lift = 0): [number, number] | null {
+    const m = plotSvg!.getScreenCTM();
+    if (!m) return null;
+    const p = new DOMPoint(e.clientX, e.clientY - lift).matrixTransform(m.inverse());
+    const x = Math.round(p.x), y = Math.round(-p.y);
+    return Math.abs(x) <= 8 && Math.abs(y) <= 8 ? [x, y] : null;
+  }
+  const fmtPt = ([x, y]: [number, number]) => `(${String(x).replace('-', MINUS)}, ${String(y).replace('-', MINUS)})`;
+
+  function startPlot() {
+    stage = 'plot';
+    plotSvg = $('#qmath').querySelector<SVGSVGElement>('.tq svg');
+    const tq = $('#qmath').querySelector('.tq')!;
+    tq.classList.add('plotting');
+    $('#inst').innerHTML = 'Step 2 of 3: plot the points from both tables.';
+    showAnswerRow();
+    plotMsg();
+    ghost = document.createElementNS(SVGNS, 'g') as unknown as SVGGElement;
+    ghost.setAttribute('class', 'ghost');
+    ghost.innerHTML = `<circle r=".34"/><text text-anchor="middle"></text>`;
+    ghost.style.display = 'none';
+    plotSvg!.appendChild(ghost);
+    /** Touch and pen: press, slide, release. The ring floats above the finger with its coordinates. */
+    let dragging = false;
+    let at: [number, number] | null = null;
+    const lift = (e: PointerEvent) => (e.pointerType === 'mouse' ? 0 : 44);
+    const showGhost = (g: [number, number] | null) => {
+      at = g;
+      ghost!.style.display = g ? '' : 'none';
+      if (!g) return;
+      ghost!.setAttribute('transform', `translate(${g[0]} ${-g[1]})`);
+      const t = ghost!.querySelector('text')!;
+      t.textContent = fmtPt(g);
+      t.setAttribute('y', g[1] > 6 ? '1.45' : '-.75');
+    };
+    plotSvg!.onpointermove = (e) => {
+      if (e.pointerType === 'mouse' || dragging) showGhost(gridPoint(e, lift(e)));
+    };
+    plotSvg!.onpointerleave = () => {
+      if (!dragging) showGhost(null);
+    };
+    plotSvg!.onpointerdown = (e) => {
+      if (stage !== 'plot') return;
+      e.preventDefault();
+      if (e.pointerType === 'mouse') {
+        const g = gridPoint(e);
+        if (g) place(g);
+        return;
+      }
+      dragging = true;
+      showGhost(gridPoint(e, lift(e)));
+      try {
+        plotSvg!.setPointerCapture(e.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
+    };
+    plotSvg!.onpointerup = plotSvg!.onpointercancel = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      const g = at;
+      showGhost(null);
+      if (g && e.type === 'pointerup' && stage === 'plot') place(g);
+    };
+  }
+
+  function place(g: [number, number]) {
+    {
+      const key = `${g[0]},${g[1]}`;
+      const hits = [...plotSvg!.querySelectorAll<SVGCircleElement>(`.plot circle[data-p="${key}"]`)];
+      if (!hits.length) {
+        sfx.bad();
+        const x = document.createElementNS(SVGNS, 'text');
+        x.setAttribute('class', 'miss');
+        x.setAttribute('x', String(g[0]));
+        x.setAttribute('y', String(-g[1] + 0.3));
+        x.setAttribute('text-anchor', 'middle');
+        x.textContent = '×';
+        plotSvg!.appendChild(x);
+        setTimeout(() => x.remove(), 700);
+        plotMsg(`<b>${fmtPt(g)} isn’t in either table.</b>`);
+        return;
+      }
+      if (hits.every((h) => h.classList.contains('on'))) return;
+      sfx.tap();
+      hits.forEach((h) => h.classList.add('on'));
+      // a line is drawn once all of its points are plotted
+      for (const l of [0, 1]) {
+        const cls = l ? 'pt2' : 'pt1';
+        const all = [...plotSvg!.querySelectorAll(`.plot circle.${cls}`)];
+        if (all.every((c) => c.classList.contains('on'))) plotSvg!.querySelector(`.plot line[data-l="${l}"]`)?.classList.add('on');
+      }
+      if (plottedCount() === plotPoints().length) setTimeout(plotDone, reduceMotion() ? 0 : 650);
+      else plotMsg();
+    }
+  }
+
+  function stopPlotting() {
+    if (!plotSvg) return;
+    plotSvg.onpointermove = plotSvg.onpointerdown = plotSvg.onpointerleave = plotSvg.onpointerup = plotSvg.onpointercancel = null;
+    ghost?.remove();
+    $('#qmath').querySelector('.tq')?.classList.remove('plotting');
+    plotSvg = null;
+  }
+
+  function plotDone() {
+    if (stage !== 'plot') return;
+    stopPlotting();
     stage = 'answer';
     sfx.tap();
-    plot();
     $('#inst').innerHTML = P!.inst2 ?? P!.inst;
     submit.textContent = 'Submit';
     showAnswerRow();
-    msg('good', `<div><b>Tables right.</b> <span class="sub">Now read the graph.</span></div>`);
+    msg('good', `<div><b>Both lines drawn.</b> <span class="sub">Now read the graph.</span></div>`);
     activeInput = px;
     if (mode() === 'pair' && matchMedia('(hover:hover)').matches) px.focus({ preventScroll: true });
+  }
+
+  function tablesDone() {
+    startPlot();
   }
 
   function renderChoices() {
@@ -207,6 +339,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
       phase = 'ask';
       qnum++;
       lastWrong = '';
+      stopPlotting();
       stage = P.table ? 'table' : 'answer';
       const m = mode();
       $('#inst').innerHTML = P.inst;
@@ -312,7 +445,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   function check() {
     if (!P) return;
     if (phase !== 'ask') return newQ();
-    if (mode() === 'choice') return;
+    if (mode() === 'choice' || mode() === 'plot') return;
     if (mode() === 'table') {
       const t = readTables();
       if (!t) return;

@@ -418,8 +418,8 @@ sub{font-size:.6em}
 .gsv .pt1{fill:var(--teal)}
 .gsv .pt2{fill:var(--pen-red)}
 .gsv .hit{fill:none;stroke:var(--ink);stroke-width:.12}
-.tq .plot{visibility:hidden}
-.tq.plotted .plot{visibility:visible}
+.tq .plot>*{visibility:hidden}
+.tq.plotted .plot>*,.tq .plot>.on{visibility:visible}
 .tq.plotted .pt1,.tq.plotted .pt2{transform-box:fill-box;transform-origin:center;animation:ptIn .32s cubic-bezier(.2,1.6,.4,1) calc(var(--d) * 90ms) both}
 .tq.plotted .ln,.tq.plotted .ln2:not(.dash){stroke-dasharray:1;animation:lnIn .55s cubic-bezier(.4,0,.2,1) calc(var(--d) * 90ms) both}
 .tq.plotted .ln2.dash{animation:fadeIn .5s calc(var(--d) * 90ms) both}
@@ -435,3 +435,12 @@ sub{font-size:.6em}
 /* while the working is open it has its own graph: keep just the student's tables, side by side */
 .solving .tq svg{display:none}
 .solving .tside{flex-direction:row;gap:clamp(10px,3cqw,28px);font-size:clamp(9px,min(17cqh,2.4cqw),20px)}
+/* tap to plot */
+.tq.plotting svg{cursor:crosshair;touch-action:none;outline:2px solid var(--teal);outline-offset:-1px}
+.tq .plot circle.on{transform-box:fill-box;transform-origin:center;animation:ptIn .3s cubic-bezier(.2,1.6,.4,1) both}
+.tq .plot line.on{stroke-dasharray:1;animation:lnIn .55s cubic-bezier(.4,0,.2,1) both}
+.tq .plot line.dash.on{stroke-dasharray:.45 .35;animation:fadeIn .5s both}
+.gsv .ghost{pointer-events:none}
+.gsv .ghost circle{fill:none;stroke:var(--ink);stroke-width:.09}
+.gsv .ghost text{font-family:var(--mono);font-size:.95px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:.22px}
+.gsv .miss{fill:var(--bad);font-size:1.1px;font-family:var(--ui);font-weight:700;pointer-events:none;animation:fadeIn .15s both}

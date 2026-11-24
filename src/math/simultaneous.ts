@@ -246,9 +246,9 @@ function plotSVG(a: Line, b: Line, xs: number[], dashed: boolean, hit?: [number,
   }
   const n = xs.length;
   const seg = (ln: Line, cls: string, d: number) =>
-    `<line class="${cls}" pathLength="1" style="--d:${d}" x1="-9" y1="${-yAt(ln, -9)}" x2="9" y2="${-yAt(ln, 9)}"/>`;
+    `<line class="${cls}" data-l="${d === n ? 0 : 1}" pathLength="1" style="--d:${d}" x1="-9" y1="${-yAt(ln, -9)}" x2="9" y2="${-yAt(ln, 9)}"/>`;
   const pts = (ln: Line, cls: string, d0: number) =>
-    xs.map((x, j) => `<circle class="${cls}" style="--d:${d0 + j}" cx="${x}" cy="${-yAt(ln, x)}" r=".27"/>`).join('');
+    xs.map((x, j) => `<circle class="${cls}" data-p="${x},${yAt(ln, x)}" style="--d:${d0 + j}" cx="${x}" cy="${-yAt(ln, x)}" r=".27"/>`).join('');
   const hitDot = hit ? `<circle class="hit" cx="${hit[0]}" cy="${-hit[1]}" r=".5"/>` : '';
   return `<svg class="gsv" viewBox="-8.8 -8.8 17.6 17.6" role="img" aria-label="Grid for plotting both lines"><rect class="bgr" x="-8.8" y="-8.8" width="17.6" height="17.6"/>
     <g transform="scale(1,-1)">${g}</g>${lb}<g class="plot">${seg(a, 'ln', n)}${seg(b, dashed ? 'ln2 dash' : 'ln2', 2 * n + 1)}${pts(a, 'pt1', 0)}${pts(b, 'pt2', n + 1)}${hitDot}</g></svg>`;
@@ -282,7 +282,7 @@ function tableProblem(a: Line, b: Line, xs: number[], dashed: boolean, finish: P
   const blk = (ln: Line, li: number, cls: string) =>
     `<div class="tblk"><div class="teq"><span class="key ${cls}"></span>${lineEq(ln)}${lbl(`(${li + 1})`)}</div>${valueTable(ln, xs, li, true)}</div>`;
   return {
-    inst: 'Step 1 of 2: complete the table of values for each equation.',
+    inst: 'Step 1 of 3: complete the table of values for each equation.',
     inst2: finish.inst2,
     q: `<div class="gq tq">${plotSVG(a, b, xs, dashed)}<div class="tside">${blk(a, 0, 'c1')}${blk(b, 1, 'c2')}</div></div>`,
     sample: system(lineEq(a), lineEq(b)),
@@ -324,7 +324,7 @@ function graphing(): Problem {
       const check = (ln: Line) =>
         ln.std ? checkLine(ln.std[0], ln.std[1], ln.std[2], x0, y0) : `${N(y0)}${EQ}${join([[ln.m, `(${N(x0)})`], [ln.k, '']])} ✓`;
       return tableProblem(a, b, xs, false, {
-        inst2: 'Step 2 of 2: the points are plotted. Where do the lines cross?',
+        inst2: 'Step 3 of 3: where do the lines cross?',
         ans: F(x0),
         kind: 'pair',
         pair: [F(x0), F(y0)],
@@ -342,7 +342,7 @@ function graphing(): Problem {
     }
   }
   const options = ['One solution', 'No solution', 'Infinitely many solutions'];
-  const inst2 = 'Step 2 of 2: the lines are plotted. How many solutions are there?';
+  const inst2 = 'Step 3 of 3: how many solutions are there?';
   if (roll < 0.9) {
     for (;;) {
       const xs = xsFrom(R(-2, 1));
