@@ -23,7 +23,11 @@ export function walkthrough(pr: Problem, { mode, all, auto, wrongHTML = '' }: Wa
   let shown = all ? total : mode === 'example' ? 0 : 1;
   let timer: number | undefined;
 
-  const answer = `<span class="ansch">${pr.lhs || ''}${ansHTML(pr)}</span>`;
+  const ans = ansHTML(pr);
+  // word answers (multiple choice) can be a whole sentence: show them smaller, in the UI font
+  const long = ans.replace(/<[^>]+>/g, '').length > 28;
+  if (long) el.classList.add('long');
+  const answer = `<span class="ansch${long ? ' long' : ''}">${pr.lhs || ''}${ans}</span>`;
   const head =
     mode === 'reveal'
       ? `<span class="eyebrow">Answer</span>${answer}<span class="yours">You put <s>${wrongHTML}</s></span>`

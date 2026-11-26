@@ -621,6 +621,12 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     (e.currentTarget as HTMLElement).setAttribute('aria-pressed', String(show));
   };
 
+  addEventListener('stepwise:xp', (e) => {
+    progress().xp += (e as CustomEvent<number>).detail;
+    renderStats(true);
+    save();
+  });
+
   /* ---------- tools tabs ---------- */
   function showTab(id: string) {
     $$('.tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === id)));

@@ -103,6 +103,13 @@ let onChange: () => void = () => {};
 export function initRewards(changed: () => void): void {
   onChange = changed;
   applyAccent();
+  // orbs found in the forest add XP
+  addEventListener('stepwise:xp', (e) => {
+    const n = (e as CustomEvent<number>).detail;
+    const fresh = checkUnlocks(S.xp - n, S.xp);
+    if (fresh.length) toastUnlock(fresh);
+    onChange();
+  });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyAccent);
   document.addEventListener('click', (e) => {
     if ((e.target as Element).closest('[data-rewards]')) {
