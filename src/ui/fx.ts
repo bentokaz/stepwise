@@ -27,11 +27,12 @@ export function burstAt(el: Element): void {
 }
 
 /** "+12 XP" tag that drifts under the XP counter. */
-export function floatXP(n: number, anchor: Element): void {
+export function floatXP(n: number, anchor: Element, text = `+${n} XP`): void {
   if (reduceMotion()) return;
   const r = anchor.getBoundingClientRect(), d = document.createElement('div');
   d.className = 'float';
-  d.textContent = `+${n} XP`;
+  d.textContent = text;
+  if (n < 0) d.classList.add('neg');
   d.style.left = Math.min(r.left - 10, innerWidth - 80) + 'px';
   d.style.top = r.bottom + 6 + 'px';
   layer().appendChild(d);

@@ -17,6 +17,12 @@ export interface SaveData {
   streak: number;
   best: number;
   sound: boolean;
+  /** Success animation: 'tiles' or a scene id. */
+  scene?: string;
+  /** Accent colour id. */
+  accent?: string;
+  /** Notes/Graph/Examples panel minimised. */
+  toolsMin?: boolean;
   t: Record<string, TopicProgress>;
 }
 
@@ -37,6 +43,9 @@ function load(): SaveData {
   }
   for (const t of TOPICS) base.t[t.id] = { ...fresh(), ...base.t[t.id] };
   if (!TOPICS.some((t) => t.id === base.topic)) base.topic = TOPICS[0].id;
+  // the forest walk was asked for: turn it on for anyone who has already unlocked it
+  base.scene ??= base.xp >= 50 ? 'forest' : 'tiles';
+  base.accent ??= 'lime';
   return base;
 }
 

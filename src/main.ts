@@ -6,6 +6,7 @@ import { initMenu, renderMenu } from './ui/menu';
 import { initNotepad } from './ui/notepad';
 import { initPractice } from './ui/practice';
 import { initFeedback } from './ui/feedback';
+import { initRewards } from './ui/rewards';
 
 /* Routing on the URL hash: #lessons (or nothing) is the menu, #<lesson id> is practice. */
 type View = 'menu' | 'practice';
@@ -49,6 +50,9 @@ const graph = initGraph();
 const practice = initPractice(go, pad, graph);
 initMenu(go);
 initFeedback();
+initRewards(() => {
+  if (view === 'menu') renderMenu();
+});
 
 const redrawCanvases = () => {
   pad.redraw();

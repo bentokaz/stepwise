@@ -6,6 +6,8 @@ import { GOAL, TOPICS, findTopic, topicName, type Problem } from '../math/topics
 import { S, progress, save } from '../state';
 import { $, $$, reduceMotion, replayClass } from './dom';
 import { bigWin, burstAt, confettiRain, floatXP } from './fx';
+import { checkUnlocks, levelLabel, toastUnlock } from './rewards';
+import { playScene, type SceneId } from './scene';
 import type { Graph } from './graph';
 import { fmtPts } from './menu';
 import type { Notepad } from './notepad';
@@ -74,6 +76,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     });
     setNum('#streak', S.streak, animate);
     setNum('#xp', S.xp, animate);
+    $('#lvl').textContent = levelLabel();
     $('#dia').classList.toggle('dim', S.streak < 2);
   }
 
@@ -470,8 +473,10 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     s.best = Math.max(s.best, S.streak);
     const firstTry = attempt === 1;
     const gain = firstTry ? 10 + Math.min(S.streak - 1, 5) * 2 : 5;
+    const xpBefore = S.xp;
     S.xp += gain;
     s.xp += gain;
+    const unlocks = checkUnlocks(xpBefore, S.xp);
     const before = s.pts;
     s.pts = Math.min(GOAL, s.pts + (firstTry ? 1 : 0.5));
     box.classList.remove('bad');
@@ -482,7 +487,14 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     if (reduceMotion()) {
       burstAt(box);
       floatXP(gain, $('#xp'));
-    } else bigWin(box, gain, S.streak, firstTry);
+    } else if (S.scene && S.scene !== 'tiles')
+      playScene(
+        S.scene as SceneId,
+        firstTry ? pick(['Correct', 'Nailed it', 'Clean', 'Perfect']) : 'Got it',
+        `<span>+${gain} XP</span>${S.streak > 1 ? `<span>${S.streak} in a row</span>` : ''}`,
+      );
+    else bigWin(box, gain, S.streak, firstTry);
+    if (unlocks.length) toastUnlock(unlocks);
     msg(
       'good',
       `<div><b>${firstTry ? pick(['Correct.', 'Nailed it.', 'Clean.', 'That’s it.']) : 'Correct on the second try.'}</b> <span class="sub">+${gain} XP${S.streak > 1 ? ` · ${S.streak} in a row` : ''}</span></div><button class="linkbtn" id="seeW">See the working</button>`,
@@ -528,6 +540,10 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
       phase = 'revealed';
       s.total++;
       S.streak = 0;
+      // missing a question after both tries costs a point
+      const lost = Math.min(1, s.pts);
+      s.pts = Math.max(0, s.pts - 1);
+      if (lost) floatXP(-lost, $('#scoreTxt'), `−${lost === 1 ? 1 : lost} point`);
       if (P!.table) {
         fillTables();
         plot();
@@ -612,9 +628,27 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     if (id === 'note') pad.resize();
     if (id === 'graph') graph.resize();
   }
+  /* minimise the tools panel (remembered) */
+  const work = $('.work');
+  const minBtn = $('#toolsMin');
+  function setToolsMin(min: boolean) {
+    S.toolsMin = min;
+    work.classList.toggle('min', min);
+    minBtn.title = min ? 'Show panel' : 'Minimise panel';
+    minBtn.setAttribute('aria-label', minBtn.title);
+    minBtn.setAttribute('aria-expanded', String(!min));
+    save();
+    requestAnimationFrame(() => {
+      pad.resize();
+      graph.resize();
+    });
+  }
+  setToolsMin(!!S.toolsMin);
+  minBtn.onclick = () => setToolsMin(!S.toolsMin);
   $$('.tab').forEach(
     (t) =>
       (t.onclick = () => {
+        if (S.toolsMin) setToolsMin(false);
         showTab(t.dataset.tab!);
         if (t.dataset.tab === 'ex') renderExample();
       }),

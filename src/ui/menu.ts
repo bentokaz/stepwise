@@ -2,6 +2,7 @@
 import { GOAL, TOPICS, topicName } from '../math/topics';
 import { S, progress } from '../state';
 import { $ } from './dom';
+import { levelLabel } from './rewards';
 import { sfx } from './sound';
 
 export const fmtPts = (p: number): string => (Number.isInteger(p) ? String(p) : p.toFixed(1));
@@ -10,6 +11,7 @@ const ticks = (p: number) =>
 
 export function renderMenu(): void {
   $('#mXp').textContent = String(S.xp);
+  $('#mLvl').textContent = levelLabel();
   $('#mBest').textContent = String(S.best);
   $('#mDone').textContent = `${TOPICS.filter((t) => S.t[t.id].done).length}/${TOPICS.length}`;
 
