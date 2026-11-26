@@ -7,7 +7,6 @@ import { S, progress, save } from '../state';
 import { $, $$, reduceMotion, replayClass } from './dom';
 import { bigWin, burstAt, confettiRain, floatXP } from './fx';
 import { checkUnlocks, levelLabel, toastUnlock } from './rewards';
-import { playScene, type SceneId } from './scene';
 import type { Graph } from './graph';
 import { fmtPts } from './menu';
 import type { Notepad } from './notepad';
@@ -487,13 +486,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     if (reduceMotion()) {
       burstAt(box);
       floatXP(gain, $('#xp'));
-    } else if (S.scene && S.scene !== 'tiles')
-      playScene(
-        S.scene as SceneId,
-        firstTry ? pick(['Correct', 'Nailed it', 'Clean', 'Perfect']) : 'Got it',
-        `<span>+${gain} XP</span>${S.streak > 1 ? `<span>${S.streak} in a row</span>` : ''}`,
-      );
-    else bigWin(box, gain, S.streak, firstTry);
+    } else bigWin(box, gain, S.streak, firstTry);
     if (unlocks.length) toastUnlock(unlocks);
     msg(
       'good',
@@ -620,12 +613,6 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     keypad.hidden = !show;
     (e.currentTarget as HTMLElement).setAttribute('aria-pressed', String(show));
   };
-
-  addEventListener('stepwise:xp', (e) => {
-    progress().xp += (e as CustomEvent<number>).detail;
-    renderStats(true);
-    save();
-  });
 
   /* ---------- tools tabs ---------- */
   function showTab(id: string) {
