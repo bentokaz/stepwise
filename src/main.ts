@@ -6,7 +6,7 @@ import { initMenu, renderMenu } from './ui/menu';
 import { initNotepad } from './ui/notepad';
 import { initPractice } from './ui/practice';
 import { initFeedback } from './ui/feedback';
-import { initRewards } from './ui/rewards';
+import { initRewards, toastNew } from './ui/rewards';
 
 /* Routing on the URL hash: #lessons (or nothing) is the menu, #<lesson id> is practice. */
 type View = 'menu' | 'practice';
@@ -25,6 +25,11 @@ function show(el: HTMLElement, other: HTMLElement) {
 function route() {
   const id = location.hash.slice(1);
   const t = findTopic(id);
+  // leaving a lesson part-way through (back button, browser back, another lesson) asks first
+  if (view === 'practice' && id !== S.topic && !practice.canLeave(() => go(id))) {
+    history.replaceState(null, '', '#' + S.topic);
+    return;
+  }
   if (t) {
     if (view === 'practice' && S.topic === id) return;
     view = 'practice';
@@ -37,6 +42,7 @@ function route() {
     practice.active = false;
     renderMenu();
     show(menuEl, practiceEl);
+    toastNew();
   }
 }
 

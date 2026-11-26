@@ -46,37 +46,105 @@ export function floatXP(n: number, anchor: Element, text = `+${n} XP`): void {
   ).onfinish = () => d.remove();
 }
 
+/** The success screens you can pick in Rewards. */
+export type Screen = 'tiles' | 'shockwave' | 'stripes' | 'rain' | 'blinds' | 'curtain';
+
+const EASE_IN = 'cubic-bezier(.2,.9,.3,1.12)';
+const EASE_OUT = 'cubic-bezier(.55,0,.85,.35)';
+
+/** One covering piece: pops in, holds while the word shows, then leaves. */
+function piece(css: string, from: string, mid: string, to: string, delay: number): void {
+  const t = document.createElement('i');
+  t.className = 'tile';
+  t.style.cssText = css;
+  layer().appendChild(t);
+  t.animate(
+    [
+      { transform: from, easing: EASE_IN },
+      { transform: mid, offset: 0.2 },
+      { transform: mid, offset: 0.62, easing: EASE_OUT },
+      { transform: to },
+    ],
+    { duration: 1500, delay, fill: 'both' },
+  ).onfinish = () => t.remove();
+  setTimeout(() => t.remove(), 1500 + delay + 200); // in case animations stall in a background tab
+}
+
 /**
- * Full-screen win: square tiles flood out from `origin`, a big check and word appear,
- * confetti flies from the center, then the tiles drain away in the same radial order.
+ * Full-screen win: the chosen screen covers the page from `origin`, a big check and word appear,
+ * confetti flies from the center, then the screen clears.
  */
-export function bigWin(origin: Element, gain: number, streak: number, first: boolean): void {
+export function bigWin(origin: Element, gain: number, streak: number, first: boolean, screen: Screen = 'tiles'): void {
   const fx = layer();
   fx.querySelectorAll('.tile,.win').forEach((n) => n.remove());
-  const W = innerWidth, H = innerHeight, size = Math.ceil(Math.max(W, H) / 11);
-  const cols = Math.ceil(W / size), rows = Math.ceil(H / size);
+  const W = innerWidth, H = innerHeight;
   const fr = origin.getBoundingClientRect(), ox = fr.left + fr.width / 2, oy = fr.top + fr.height / 2;
   const maxD = Math.hypot(Math.max(ox, W - ox), Math.max(oy, H - oy));
   const main = first ? 'var(--lime)' : 'var(--teal)', alt = first ? 'var(--teal)' : 'var(--lime)';
 
-  for (let r = 0; r < rows; r++)
-    for (let c = 0; c < cols; c++) {
-      const t = document.createElement('i');
-      t.className = 'tile';
-      const x = c * size, y = r * size, d = Math.hypot(x + size / 2 - ox, y + size / 2 - oy) / maxD;
-      t.style.cssText = `left:${x}px;top:${y}px;width:${size + 1}px;height:${size + 1}px;background:${Math.random() < 0.07 ? alt : main}`;
-      fx.appendChild(t);
-      t.animate(
-        // per-keyframe easing: pop in fast, hold, then drain
-        [
-          { transform: 'scale(0) rotate(45deg)', easing: 'cubic-bezier(.2,.9,.3,1.15)' },
-          { transform: 'scale(1) rotate(0)', offset: 0.2 },
-          { transform: 'scale(1) rotate(0)', offset: 0.62, easing: 'cubic-bezier(.55,0,.85,.35)' },
-          { transform: 'scale(0) rotate(-45deg)' },
-        ],
-        { duration: 1500, delay: d * 260, fill: 'both' },
-      ).onfinish = () => t.remove();
-    }
+  if (screen === 'tiles') {
+    const size = Math.ceil(Math.max(W, H) / 11), cols = Math.ceil(W / size), rows = Math.ceil(H / size);
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++) {
+        const x = c * size, y = r * size, d = Math.hypot(x + size / 2 - ox, y + size / 2 - oy) / maxD;
+        piece(
+          `left:${x}px;top:${y}px;width:${size + 1}px;height:${size + 1}px;background:${Math.random() < 0.07 ? alt : main}`,
+          'scale(0) rotate(45deg)',
+          'scale(1) rotate(0)',
+          'scale(0) rotate(-45deg)',
+          d * 260,
+        );
+      }
+  } else if (screen === 'shockwave') {
+    // nested diamonds burst out of the answer box, the last one covers everything
+    const size = 2 * maxD + 40;
+    for (let i = 0; i < 5; i++)
+      piece(
+        `left:${ox - size / 2}px;top:${oy - size / 2}px;width:${size}px;height:${size}px;background:${i % 2 ? alt : main}`,
+        'scale(0) rotate(45deg)',
+        `scale(${i === 4 ? 1 : 1 - (4 - i) * 0.02}) rotate(45deg)`,
+        'scale(0) rotate(45deg)',
+        i * 70,
+      );
+  } else if (screen === 'stripes') {
+    // slanted bars sweep in from the left and out to the right
+    const n = 9, bw = W / n, slant = H * 0.27;
+    for (let i = 0; i < n; i++)
+      piece(
+        `left:${i * bw - slant / 2 - 2}px;top:-2px;width:${bw + slant + 4}px;height:${H + 4}px;background:${i % 4 === 2 ? alt : main};transform-origin:50% 50%`,
+        `translateX(${-W - slant * 2}px) skewX(-15deg)`,
+        'translateX(0) skewX(-15deg)',
+        `translateX(${W + slant * 2}px) skewX(-15deg)`,
+        i * 40,
+      );
+  } else if (screen === 'rain') {
+    // columns drop in from the top and fall out the bottom
+    const n = 11, cw = W / n;
+    for (let i = 0; i < n; i++)
+      piece(
+        `left:${i * cw - 1}px;top:0;width:${cw + 2}px;height:${H + 2}px;background:${i % 5 === 3 ? alt : main}`,
+        `translateY(${-H - 20}px)`,
+        'translateY(0)',
+        `translateY(${H + 20}px)`,
+        Math.abs(i - (ox / W) * n) * 35 + Math.random() * 40,
+      );
+  } else if (screen === 'blinds') {
+    // vertical slats open from the middle outwards
+    const n = 14, sw = W / n;
+    for (let i = 0; i < n; i++)
+      piece(
+        `left:${i * sw - 1}px;top:0;width:${sw + 2}px;height:${H}px;background:${i % 2 ? main : 'color-mix(in srgb, ' + main + ' 88%, var(--ink))'}`,
+        'scaleX(0)',
+        'scaleX(1)',
+        'scaleX(0)',
+        Math.abs(i - (n - 1) / 2) * 32,
+      );
+  } else {
+    // curtain: two halves meet in the middle, then lift away
+    piece(`left:0;top:0;width:${W / 2 + 1}px;height:${H}px;background:${main}`, 'translateX(-101%)', 'translateX(0)', 'translateY(-101%)', 0);
+    piece(`left:${W / 2}px;top:0;width:${W / 2}px;height:${H}px;background:${main}`, 'translateX(101%)', 'translateX(0)', 'translateY(-101%)', 60);
+    piece(`left:${W / 2 - 4}px;top:0;width:8px;height:${H}px;background:${alt}`, 'scaleY(0)', 'scaleY(1)', 'translateY(-101%)', 160);
+  }
 
   const words = first ? ['Correct', 'Nailed it', 'Clean', 'Yes', 'Perfect'] : ['Got it', 'There it is'];
   const w = document.createElement('div');

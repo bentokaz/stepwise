@@ -48,7 +48,7 @@
     <div class="where"><span class="eyebrow" id="grp"></span><span class="t" id="tname"></span></div>
     <div class="prog" title="Score"><div class="segs" id="segs"></div><span class="sc tnum" id="scoreTxt">0/5</span></div>
     <div class="mini" title="Streak"><span class="dia dim" id="dia"></span><span class="eyebrow">Streak</span><b class="tnum" id="streak">0</b></div>
-    <button class="mini xpbtn" title="XP and rewards" data-rewards><span class="eyebrow">XP</span><b class="tnum" id="xp">0</b><span class="lvl tnum" id="lvl"></span></button>
+    <div class="mini" title="XP"><span class="eyebrow">XP</span><b class="tnum" id="xp">0</b><span class="lvl tnum" id="lvl"></span></div>
     <button class="fbtn" data-feedback title="Give feedback"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2.5h12v8.5H6.5L3 14v-3H2z"/></svg><span>Feedback</span></button>
     <button class="icon" id="soundBtn" title="Sound on" aria-label="Toggle sound"></button>
   </header>
@@ -188,10 +188,23 @@
       <div><span class="eyebrow">Best streak</span><b class="tnum" id="dStreak"></b></div>
       <div><span class="eyebrow">XP earned</span><b class="tnum" id="dXp"></b></div>
     </div>
+    <p class="dnew" id="dNew" hidden></p>
     <div class="drow">
       <button class="btn ghost" id="toMenu">All lessons</button>
       <button class="btn ghost" id="keepGoing">Keep practicing</button>
       <button class="btn primary" id="nextTopic">Next lesson →</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="leave" hidden>
+  <div class="leave-card" role="alertdialog" aria-labelledby="leaveTitle" aria-describedby="leaveText">
+    <span class="eyebrow">Stay locked in</span>
+    <h2 id="leaveTitle">Finish this lesson first?</h2>
+    <p id="leaveText"></p>
+    <div class="drow">
+      <button class="btn ghost" id="leaveAnyway">Leave and reset</button>
+      <button class="btn primary" id="leaveStay">Keep going</button>
     </div>
   </div>
 </div>

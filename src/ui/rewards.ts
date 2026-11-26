@@ -1,14 +1,17 @@
 /**
  * What XP is for: levels, and rewards that unlock as your total XP grows
- * (accent colours). XP is never spent, so unlocks are permanent.
+ * (success screens and accent colours). XP is never spent, so unlocks are permanent.
+ * Rewards live on the lessons page only: during a lesson nothing here pops up,
+ * and new unlocks are announced when the lesson is finished.
  */
 import { S, save } from '../state';
 import { $ } from './dom';
+import { bigWin, type Screen } from './fx';
 import { sfx } from './sound';
 
 export interface Reward {
   id: string;
-  kind: 'accent';
+  kind: 'screen' | 'accent';
   name: string;
   xp: number;
   desc: string;
@@ -17,9 +20,17 @@ export interface Reward {
 }
 
 export const REWARDS: Reward[] = [
+  { id: 'tiles', kind: 'screen', name: 'Tile flood', xp: 0, desc: 'Square tiles flood out from your answer.' },
+  { id: 'shockwave', kind: 'screen', name: 'Shockwave', xp: 75, desc: 'Diamonds burst out in rings.' },
+  { id: 'stripes', kind: 'screen', name: 'Stripes', xp: 200, desc: 'Slanted bars sweep across.' },
+  { id: 'rain', kind: 'screen', name: 'Block rain', xp: 350, desc: 'Columns drop in and fall away.' },
+  { id: 'blinds', kind: 'screen', name: 'Blinds', xp: 550, desc: 'Slats flip open from the middle.' },
+  { id: 'curtain', kind: 'screen', name: 'Curtain', xp: 900, desc: 'Two halves meet, then lift away.' },
   { id: 'lime', kind: 'accent', name: 'Lime', xp: 0, desc: 'The original.', colors: ['#D2F26A', '#C9EE5A'] },
   { id: 'sky', kind: 'accent', name: 'Sky', xp: 150, desc: 'A bright, clear blue.', colors: ['#8FD3FF', '#7CC8F8'] },
-  { id: 'coral', kind: 'accent', name: 'Coral', xp: 400, desc: 'Warm and punchy.', colors: ['#FFB199', '#FF9F85'] },
+  { id: 'mint', kind: 'accent', name: 'Mint', xp: 275, desc: 'Fresh and calm.', colors: ['#8EF0C8', '#7AE6BA'] },
+  { id: 'coral', kind: 'accent', name: 'Coral', xp: 450, desc: 'Warm and punchy.', colors: ['#FFB199', '#FF9F85'] },
+  { id: 'rose', kind: 'accent', name: 'Rose', xp: 650, desc: 'Soft pink.', colors: ['#FFB3D1', '#FF9EC4'] },
   { id: 'violet', kind: 'accent', name: 'Violet', xp: 800, desc: 'For the dedicated.', colors: ['#D3B8FF', '#C4A3FF'] },
   { id: 'gold', kind: 'accent', name: 'Gold', xp: 1500, desc: 'Top tier.', colors: ['#FFD45E', '#FFCB3D'] },
 ];
@@ -36,6 +47,12 @@ export function level(xp: number): { lvl: number; into: number; need: number } {
 }
 
 export const unlocked = (r: Reward, xp = S.xp) => xp >= r.xp;
+
+/** The success screen to play (falls back to tiles if the saved one isn't unlocked). */
+export function currentScreen(): Screen {
+  const r = REWARDS.find((x) => x.kind === 'screen' && x.id === S.screen && unlocked(x));
+  return (r?.id ?? 'tiles') as Screen;
+}
 
 /** Applies the equipped accent colour to the page. */
 export function applyAccent(): void {
@@ -54,35 +71,34 @@ export function applyAccent(): void {
   root.setProperty('--on-lime', '#131a1a');
 }
 
-/** Rewards newly unlocked by going from `before` to `after` XP. */
+/** Records rewards newly unlocked by going from `before` to `after` XP; they're announced after the lesson. */
 export function checkUnlocks(before: number, after: number): Reward[] {
   const fresh = REWARDS.filter((r) => r.xp > before && r.xp <= after);
+  if (fresh.length) {
+    S.newRewards = [...new Set([...(S.newRewards ?? []), ...fresh.map((r) => r.id)])];
+    save();
+  }
   return fresh;
 }
 
-/** A small toast in the corner announcing an unlock. */
-export function toastUnlock(rs: Reward[]): void {
-  for (const r of rs) {
-    const t = document.createElement('button');
-    t.className = 'toast';
-    t.innerHTML = `<span class="eyebrow">Unlocked at ${r.xp} XP</span><b>Colour: ${r.name}</b><span class="sub">${
-      'Tap to open Rewards.'
-    }</span>`;
-    t.onclick = () => {
-      t.remove();
-      openRewards();
-    };
-    document.body.appendChild(t);
-    t.animate(
-      [
-        { transform: 'translateY(20px)', opacity: 0 },
-        { transform: 'none', opacity: 1, offset: 0.08 },
-        { transform: 'none', opacity: 1, offset: 0.9 },
-        { transform: 'translateY(10px)', opacity: 0 },
-      ],
-      { duration: 6000, delay: 1800, fill: 'both' },
-    ).onfinish = () => t.remove();
-  }
+/** Unlocks not yet seen in the Rewards dialog. */
+export const newRewards = (): Reward[] => (S.newRewards ?? []).map((id) => REWARDS.find((r) => r.id === id)!).filter(Boolean);
+
+/** Lessons page: a corner note about unseen unlocks. */
+export function toastNew(): void {
+  const rs = newRewards();
+  document.querySelectorAll('.toast').forEach((t) => t.remove());
+  if (!rs.length) return;
+  const t = document.createElement('button');
+  t.className = 'toast';
+  t.innerHTML = `<span class="eyebrow">New reward${rs.length > 1 ? 's' : ''} unlocked</span><b>${rs.map((r) => r.name).join(', ')}</b><span class="sub">Tap to open Rewards.</span>`;
+  t.onclick = () => {
+    t.remove();
+    openRewards();
+  };
+  document.body.appendChild(t);
+  t.animate([{ transform: 'translateY(20px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, delay: 300, fill: 'both' });
+  setTimeout(() => t.remove(), 9000);
 }
 
 /** Header chip: "Lv 3". */
@@ -108,7 +124,14 @@ export function initRewards(changed: () => void): void {
     if (!b) return;
     const r = REWARDS.find((x) => x.id === b.dataset.rid)!;
     if (!unlocked(r)) return;
-    S.accent = r.id;
+    if (el.closest('[data-preview]')) {
+      sfx.win();
+      bigWin(el.closest('.rcard')!, 10, 2, true, r.id as Screen);
+      return;
+    }
+    if (!el.closest('[data-use]')) return;
+    if (r.kind === 'screen') S.screen = r.id;
+    else S.accent = r.id;
     save();
     applyAccent();
     sfx.tap();
@@ -122,12 +145,21 @@ export function initRewards(changed: () => void): void {
 
 function closeRewards() {
   $('#rwd').hidden = true;
+  onChange();
 }
 
 export function openRewards(): void {
   renderRewards();
+  // opening the dialog counts as seeing the new unlocks
+  const fresh = new Set(S.newRewards ?? []);
+  S.newRewards = [];
+  save();
+  document.querySelectorAll('.toast').forEach((t) => t.remove());
   $('#rwd').hidden = false;
   $<HTMLElement>('#rwd [data-close]').focus();
+  $('#rwdBody')
+    .querySelectorAll<HTMLElement>('[data-rid]')
+    .forEach((c) => c.classList.toggle('fresh', fresh.has(c.dataset.rid!)));
 }
 
 function renderRewards() {
@@ -135,13 +167,13 @@ function renderRewards() {
   const next = REWARDS.filter((r) => !unlocked(r)).sort((a, b) => a.xp - b.xp)[0];
   const card = (r: Reward) => {
     const open = unlocked(r);
-    const on = S.accent === r.id;
-    const sw = `<i class="rsw" style="background:${r.colors![0]}"></i>`;
+    const on = (r.kind === 'screen' ? currentScreen() : S.accent) === r.id;
+    const sw = r.kind === 'accent' ? `<i class="rsw" style="background:${r.colors![0]}"></i>` : `<i class="rsc rsc-${r.id}"></i>`;
     return `<div class="rcard${open ? '' : ' locked'}${on ? ' on' : ''}" data-rid="${r.id}">
       ${sw}<div class="rtx"><b>${r.name}</b><span>${open ? r.desc : `Unlocks at ${r.xp} XP (${r.xp - S.xp} to go)`}</span></div>
       <div class="rbt">${
         open
-          ? `<button class="btn ${on ? 'primary' : 'ghost'} sm" ${on ? 'disabled' : ''}>${on ? 'Using' : 'Use'}</button>`
+          ? `${r.kind === 'screen' ? `<button class="btn ghost sm" data-preview>Preview</button>` : ''}<button class="btn ${on ? 'primary' : 'ghost'} sm" data-use ${on ? 'disabled' : ''}>${on ? 'Using' : 'Use'}</button>`
           : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="7"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>`
       }</div></div>`;
   };
@@ -152,5 +184,6 @@ function renderRewards() {
     <p class="rnote">You have <b class="tnum">${S.xp} XP</b>. XP is never spent: rewards unlock as your total grows.${
       next ? ` Next unlock: <b>${next.name}</b> at ${next.xp} XP.` : ' Everything is unlocked.'
     }</p>
+    <span class="eyebrow">Success screen</span><div class="rgrid">${REWARDS.filter((r) => r.kind === 'screen').map(card).join('')}</div>
     <span class="eyebrow">Accent colour</span><div class="rgrid">${REWARDS.filter((r) => r.kind === 'accent').map(card).join('')}</div>`;
 }

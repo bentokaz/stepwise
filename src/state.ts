@@ -17,6 +17,10 @@ export interface SaveData {
   streak: number;
   best: number;
   sound: boolean;
+  /** Success screen id ('tiles', 'shockwave', …). */
+  screen?: string;
+  /** Rewards unlocked but not yet seen in the Rewards dialog. */
+  newRewards?: string[];
   /** Accent colour id. */
   accent?: string;
   /** Notes/Graph/Examples panel minimised. */

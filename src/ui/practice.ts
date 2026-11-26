@@ -6,7 +6,7 @@ import { GOAL, TOPICS, findTopic, topicName, type Problem } from '../math/topics
 import { S, progress, save } from '../state';
 import { $, $$, reduceMotion, replayClass } from './dom';
 import { bigWin, burstAt, confettiRain, floatXP } from './fx';
-import { checkUnlocks, levelLabel, toastUnlock } from './rewards';
+import { checkUnlocks, currentScreen, levelLabel, type Reward } from './rewards';
 import type { Graph } from './graph';
 import { fmtPts } from './menu';
 import type { Notepad } from './notepad';
@@ -19,6 +19,13 @@ export interface Practice {
   open(id: string): void;
   /** True while this screen is showing. */
   active: boolean;
+  /**
+   * Called before leaving the lesson. Returns true if leaving is fine now; otherwise it asks the
+   * student to stay and calls `leave` only if they choose to leave (which resets the lesson).
+   */
+  canLeave(leave: () => void): boolean;
+  /** True while a lesson is under way and not yet finished. */
+  midLesson(): boolean;
 }
 
 export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Graph): Practice {
@@ -35,7 +42,10 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   let phase: Phase = 'ask';
   let qnum = 0;
   let lastWrong = '';
-  const api: Practice = { open, active: false };
+  const api: Practice = { open, active: false, canLeave, midLesson };
+  /** Questions answered since this lesson was opened, and rewards unlocked meanwhile. */
+  let answered = 0;
+  let lessonUnlocks: Reward[] = [];
 
   const topic = () => findTopic(S.topic)!;
 
@@ -475,7 +485,8 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     const xpBefore = S.xp;
     S.xp += gain;
     s.xp += gain;
-    const unlocks = checkUnlocks(xpBefore, S.xp);
+    lessonUnlocks.push(...checkUnlocks(xpBefore, S.xp));
+    answered++;
     const before = s.pts;
     s.pts = Math.min(GOAL, s.pts + (firstTry ? 1 : 0.5));
     box.classList.remove('bad');
@@ -486,8 +497,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     if (reduceMotion()) {
       burstAt(box);
       floatXP(gain, $('#xp'));
-    } else bigWin(box, gain, S.streak, firstTry);
-    if (unlocks.length) toastUnlock(unlocks);
+    } else bigWin(box, gain, S.streak, firstTry, currentScreen());
     msg(
       'good',
       `<div><b>${firstTry ? pick(['Correct.', 'Nailed it.', 'Clean.', 'That’s it.']) : 'Correct on the second try.'}</b> <span class="sub">+${gain} XP${S.streak > 1 ? ` · ${S.streak} in a row` : ''}</span></div><button class="linkbtn" id="seeW">See the working</button>`,
@@ -532,6 +542,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     } else {
       phase = 'revealed';
       s.total++;
+      answered++;
       S.streak = 0;
       // missing a question after both tries costs a point
       const lost = Math.min(1, s.pts);
@@ -666,7 +677,9 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     save();
     sfx.tap();
   };
-  $('#back').onclick = () => go('lessons');
+  $('#back').onclick = () => {
+    if (canLeave(() => go('lessons'))) go('lessons');
+  };
 
   /* ---------- lesson mastered ---------- */
   function showDone() {
@@ -675,6 +688,12 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     $('#dAcc').textContent = Math.round((s.right / s.total) * 100) + '%';
     $('#dStreak').textContent = String(s.best);
     $('#dXp').textContent = String(s.xp);
+    const dNew = $('#dNew');
+    dNew.hidden = !lessonUnlocks.length;
+    dNew.innerHTML = lessonUnlocks.length
+      ? `<b>New reward${lessonUnlocks.length > 1 ? 's' : ''} unlocked:</b> ${lessonUnlocks.map((r) => r.name).join(', ')}. Open Rewards from the lessons page to use ${lessonUnlocks.length > 1 ? 'them' : 'it'}.`
+      : '';
+    lessonUnlocks = [];
     overlay.hidden = false;
     sfx.done();
     confettiRain();
@@ -694,7 +713,53 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     go(TOPICS[(i + 1) % TOPICS.length].id);
   };
 
+  /* ---------- stay in the lesson until it's finished ---------- */
+  function midLesson() {
+    return api.active && answered > 0 && !progress().done;
+  }
+  const leaveBox = $('#leave');
+  let onLeave: (() => void) | null = null;
+  function canLeave(leave: () => void): boolean {
+    if (!midLesson()) return true;
+    const s = progress();
+    $('#leaveText').innerHTML = `You're on <b>${fmtPts(s.pts)}/${GOAL}</b> in <b>${topicName(topic())}</b>. ${
+      GOAL - s.pts <= 2 ? 'You’re nearly there. ' : ''
+    }${s.pts > 0 ? 'If you leave now, this lesson’s score goes back to 0.' : 'Finish it now while it’s fresh.'}`;
+    onLeave = leave;
+    leaveBox.hidden = false;
+    $('#leaveStay').focus();
+    return false;
+  }
+  const stay = () => {
+    leaveBox.hidden = true;
+    onLeave = null;
+    sfx.tap();
+  };
+  $('#leaveStay').onclick = stay;
+  leaveBox.addEventListener('click', (e) => {
+    if (e.target === leaveBox) stay();
+  });
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !leaveBox.hidden) stay();
+  });
+  $('#leaveAnyway').onclick = () => {
+    const s = progress();
+    s.pts = 0;
+    answered = 0;
+    save();
+    leaveBox.hidden = true;
+    const f = onLeave;
+    onLeave = null;
+    f?.();
+  };
+  // closing or reloading the tab mid-lesson asks first (the browser shows its own message)
+  addEventListener('beforeunload', (e) => {
+    if (midLesson()) e.preventDefault();
+  });
+
   function open(id: string) {
+    answered = 0;
+    lessonUnlocks = [];
     S.topic = id;
     progress(id).seen = true;
     save();
