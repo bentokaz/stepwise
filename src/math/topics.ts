@@ -5,6 +5,7 @@
 import { F, NZ, R, gcd, lcm, pick, type Frac } from './core';
 import { EQ, FR, MINUS as M, N, V, coef, dec, fDec, fH, graphSVG, o, paren, signed } from './html';
 import { SIM_TOPICS, pairHTML } from './simultaneous';
+import { MUSIC_TOPICS } from '../music/film';
 
 /** One equation line in the working: left side, right side, and an optional label such as "(3) {(1) × 5}". */
 export interface Row {
@@ -51,6 +52,8 @@ export interface Problem {
    */
   table?: { xs: number[]; ys: number[][] };
   inst2?: string;
+  /** Called once when the student misses this question (so it can come back soon). */
+  onMiss?: () => void;
   work: Step[];
 }
 
@@ -70,6 +73,7 @@ const St = (why: string, l: string, r: string, op?: string): Step => ({ why, l, 
 export const GOAL = 5;
 
 export const TOPICS: Topic[] = [
+  ...MUSIC_TOPICS,
   ...SIM_TOPICS,
   {
     id: 'mul',

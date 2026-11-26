@@ -444,3 +444,20 @@ sub{font-size:.6em}
 .gsv .ghost circle{fill:none;stroke:var(--ink);stroke-width:.09}
 .gsv .ghost text{font-family:var(--mono);font-size:.95px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:.22px}
 .gsv .miss{fill:var(--bad);font-size:1.1px;font-family:var(--ui);font-weight:700;pointer-events:none;animation:fadeIn .15s both}
+
+/* ---------- word questions (music in film) ---------- */
+.mq{font-family:var(--ui);white-space:normal;text-align:center;line-height:1.35;font-size:clamp(16px,min(4.6cqw,10cqh),28px);max-width:min(100cqw,820px);text-wrap:balance}
+.mq b{font-weight:600}
+.mq .sub{display:block;margin-top:.55em;font-size:.72em;color:var(--ink-2)}
+.mq .quote{font-style:italic}
+.msamp{font-family:var(--ui);font-size:15px;white-space:normal;line-height:1.3}
+.wg .full{white-space:normal}
+.ansch{white-space:normal}
+.choices:has(> :nth-child(4)){grid-template-columns:1fr 1fr}
+@media (max-width:640px){
+  .arow:has(.choices:not([hidden])){flex-wrap:wrap}
+  .arow .choices:not([hidden]){flex:1 1 100%;grid-template-columns:1fr;gap:6px}
+  .arow:has(.choices:not([hidden])) .submit{flex:1 1 100%}
+  .choice{padding:7px 10px}
+}
+@media (max-width:640px){.choices.done .choice:not(.ok):not(.answer){display:none}}

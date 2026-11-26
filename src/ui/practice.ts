@@ -115,6 +115,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     kbtn.hidden = m === 'choice' || m === 'plot';
     if (m === 'choice' || m === 'plot') keypad.hidden = true;
     submit.hidden = m === 'choice' || m === 'plot';
+    choicesEl.classList.remove('done');
     if (m === 'choice') renderChoices();
   }
 
@@ -440,6 +441,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   function lockInputs() {
     for (const el of [inp, px, py, ...cells]) el.disabled = true;
     choicesEl.querySelectorAll<HTMLButtonElement>('.choice').forEach((b) => (b.disabled = true));
+    choicesEl.classList.add('done');
   }
 
   function check() {
@@ -508,6 +510,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     box.classList.add('bad');
     lastWrong = shownHTML;
     if (attempt === 1) {
+      P!.onMiss?.();
       attempt = 2;
       setPips();
       msg(
