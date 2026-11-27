@@ -11,7 +11,7 @@ import { sfx } from './sound';
 
 export interface Reward {
   id: string;
-  kind: 'screen' | 'accent';
+  kind: 'screen' | 'accent' | 'title';
   name: string;
   xp: number;
   desc: string;
@@ -26,13 +26,33 @@ export const REWARDS: Reward[] = [
   { id: 'rain', kind: 'screen', name: 'Block rain', xp: 350, desc: 'Columns drop in and fall away.' },
   { id: 'blinds', kind: 'screen', name: 'Blinds', xp: 550, desc: 'Slats flip open from the middle.' },
   { id: 'curtain', kind: 'screen', name: 'Curtain', xp: 900, desc: 'Two halves meet, then lift away.' },
+  { id: 'checker', kind: 'screen', name: 'Checkerboard', xp: 1300, desc: 'Half the squares pop, then the rest.' },
+  { id: 'bars', kind: 'screen', name: 'Bars', xp: 1800, desc: 'Bars slide in from both sides.' },
+  { id: 'pixels', kind: 'screen', name: 'Pixel dissolve', xp: 2500, desc: 'The screen fizzes in pixel by pixel.' },
+  { id: 'wipe', kind: 'screen', name: 'Diagonal wipe', xp: 3500, desc: 'One huge slanted sweep, corner to corner.' },
   { id: 'lime', kind: 'accent', name: 'Lime', xp: 0, desc: 'The original.', colors: ['#D2F26A', '#C9EE5A'] },
   { id: 'sky', kind: 'accent', name: 'Sky', xp: 150, desc: 'A bright, clear blue.', colors: ['#8FD3FF', '#7CC8F8'] },
   { id: 'mint', kind: 'accent', name: 'Mint', xp: 275, desc: 'Fresh and calm.', colors: ['#8EF0C8', '#7AE6BA'] },
   { id: 'coral', kind: 'accent', name: 'Coral', xp: 450, desc: 'Warm and punchy.', colors: ['#FFB199', '#FF9F85'] },
   { id: 'rose', kind: 'accent', name: 'Rose', xp: 650, desc: 'Soft pink.', colors: ['#FFB3D1', '#FF9EC4'] },
   { id: 'violet', kind: 'accent', name: 'Violet', xp: 800, desc: 'For the dedicated.', colors: ['#D3B8FF', '#C4A3FF'] },
-  { id: 'gold', kind: 'accent', name: 'Gold', xp: 1500, desc: 'Top tier.', colors: ['#FFD45E', '#FFCB3D'] },
+  { id: 'gold', kind: 'accent', name: 'Gold', xp: 1500, desc: 'Shiny.', colors: ['#FFD45E', '#FFCB3D'] },
+  { id: 'ocean', kind: 'accent', name: 'Ocean', xp: 2100, desc: 'Deep-sea cyan.', colors: ['#6FE3EA', '#5CD9E1'] },
+  { id: 'peach', kind: 'accent', name: 'Peach', xp: 2800, desc: 'Soft orange.', colors: ['#FFC98B', '#FFBE75'] },
+  { id: 'ruby', kind: 'accent', name: 'Ruby', xp: 4000, desc: 'Bold red.', colors: ['#FF8A98', '#FF7A8A'] },
+  { id: 'ice', kind: 'accent', name: 'Ice', xp: 5000, desc: 'Pale and cool.', colors: ['#BFE9FF', '#B0E2FF'] },
+  { id: 'platinum', kind: 'accent', name: 'Platinum', xp: 7500, desc: 'For the very few.', colors: ['#E6E9EC', '#DCE1E5'] },
+  { id: 't-new', kind: 'title', name: 'Newcomer', xp: 0, desc: 'Everyone starts somewhere.' },
+  { id: 't-learner', kind: 'title', name: 'Learner', xp: 100, desc: 'Getting going.' },
+  { id: 't-focused', kind: 'title', name: 'Locked in', xp: 300, desc: 'Staying on task.' },
+  { id: 't-solver', kind: 'title', name: 'Problem solver', xp: 600, desc: 'Nothing gets past you.' },
+  { id: 't-scholar', kind: 'title', name: 'Scholar', xp: 1000, desc: 'Serious study.' },
+  { id: 't-ace', kind: 'title', name: 'Ace', xp: 1600, desc: 'Right first time.' },
+  { id: 't-expert', kind: 'title', name: 'Expert', xp: 2400, desc: 'You know this stuff.' },
+  { id: 't-master', kind: 'title', name: 'Master', xp: 3500, desc: 'Lessons fear you.' },
+  { id: 't-legend', kind: 'title', name: 'Legend', xp: 5000, desc: 'People talk about you.' },
+  { id: 't-grand', kind: 'title', name: 'Grandmaster', xp: 7500, desc: 'Almost the top.' },
+  { id: 't-mythic', kind: 'title', name: 'Mythic', xp: 10000, desc: 'The very top.' },
 ];
 
 /** Level from total XP: each level needs 25 more XP than the last (100, 125, 150, …). */
@@ -52,6 +72,12 @@ export const unlocked = (r: Reward, xp = S.xp) => xp >= r.xp;
 export function currentScreen(): Screen {
   const r = REWARDS.find((x) => x.kind === 'screen' && x.id === S.screen && unlocked(x));
   return (r?.id ?? 'tiles') as Screen;
+}
+
+/** The title shown with your level: the one you picked, or your best unlocked. */
+export function currentTitle(): string {
+  const titles = REWARDS.filter((r) => r.kind === 'title' && unlocked(r));
+  return (titles.find((r) => r.id === S.title) ?? titles[titles.length - 1]).name;
 }
 
 /** Applies the equipped accent colour to the page. */
@@ -131,6 +157,7 @@ export function initRewards(changed: () => void): void {
     }
     if (!el.closest('[data-use]')) return;
     if (r.kind === 'screen') S.screen = r.id;
+    else if (r.kind === 'title') S.title = r.id;
     else S.accent = r.id;
     save();
     applyAccent();
@@ -167,8 +194,9 @@ function renderRewards() {
   const next = REWARDS.filter((r) => !unlocked(r)).sort((a, b) => a.xp - b.xp)[0];
   const card = (r: Reward) => {
     const open = unlocked(r);
-    const on = (r.kind === 'screen' ? currentScreen() : S.accent) === r.id;
-    const sw = r.kind === 'accent' ? `<i class="rsw" style="background:${r.colors![0]}"></i>` : `<i class="rsc rsc-${r.id}"></i>`;
+    const on = r.kind === 'screen' ? currentScreen() === r.id : r.kind === 'title' ? currentTitle() === r.name : (S.accent ?? 'lime') === r.id;
+    const sw =
+      r.kind === 'accent' ? `<i class="rsw" style="background:${r.colors![0]}"></i>` : r.kind === 'title' ? `<i class="rtt">Aa</i>` : `<i class="rsc rsc-${r.id}"></i>`;
     return `<div class="rcard${open ? '' : ' locked'}${on ? ' on' : ''}" data-rid="${r.id}">
       ${sw}<div class="rtx"><b>${r.name}</b><span>${open ? r.desc : `Unlocks at ${r.xp} XP (${r.xp - S.xp} to go)`}</span></div>
       <div class="rbt">${
@@ -178,12 +206,13 @@ function renderRewards() {
       }</div></div>`;
   };
   $('#rwdBody').innerHTML = `
-    <div class="rlvl"><div><span class="eyebrow">Level</span><b class="tnum">${lvl}</b></div>
+    <div class="rlvl"><div><span class="eyebrow">Level</span><b class="tnum">${lvl}</b><span class="rtitle">${currentTitle()}</span></div>
       <div class="rbar"><i style="width:${(into / need) * 100}%"></i></div>
       <span class="tnum">${into}/${need} XP to level ${lvl + 1}</span></div>
     <p class="rnote">You have <b class="tnum">${S.xp} XP</b>. XP is never spent: rewards unlock as your total grows.${
       next ? ` Next unlock: <b>${next.name}</b> at ${next.xp} XP.` : ' Everything is unlocked.'
     }</p>
     <span class="eyebrow">Success screen</span><div class="rgrid">${REWARDS.filter((r) => r.kind === 'screen').map(card).join('')}</div>
-    <span class="eyebrow">Accent colour</span><div class="rgrid">${REWARDS.filter((r) => r.kind === 'accent').map(card).join('')}</div>`;
+    <span class="eyebrow">Accent colour</span><div class="rgrid">${REWARDS.filter((r) => r.kind === 'accent').map(card).join('')}</div>
+    <span class="eyebrow">Title (shown with your level)</span><div class="rgrid">${REWARDS.filter((r) => r.kind === 'title').map(card).join('')}</div>`;
 }

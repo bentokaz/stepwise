@@ -2,7 +2,7 @@
 import { F, feq, pick } from '../math/core';
 import { FR, MINUS, o } from '../math/html';
 import { clean, parseAnswer } from '../math/parse';
-import { GOAL, TOPICS, findTopic, topicName, type Problem } from '../math/topics';
+import { GOAL, TOPICS, findTopic, masteryBonus, topicName, xpFor, type Problem } from '../math/topics';
 import { S, progress, save } from '../state';
 import { $, $$, reduceMotion, replayClass } from './dom';
 import { bigWin, burstAt, confettiRain, floatXP } from './fx';
@@ -12,6 +12,7 @@ import { fmtPts } from './menu';
 import type { Notepad } from './notepad';
 import { SPEAKER_OFF, SPEAKER_ON, sfx } from './sound';
 import { walkthrough } from './walkthrough';
+import { pointsFound } from '../music/written';
 
 type Phase = 'ask' | 'solved' | 'revealed';
 
@@ -46,6 +47,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   /** Questions answered since this lesson was opened, and rewards unlocked meanwhile. */
   let answered = 0;
   let lessonUnlocks: Reward[] = [];
+  let lessonBonus = 0;
 
   const topic = () => findTopic(S.topic)!;
 
@@ -112,10 +114,12 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   /** Table-of-values questions start on the tables; the answer comes after. */
   let stage: 'table' | 'plot' | 'answer' = 'answer';
   let cells: HTMLInputElement[] = [];
+  const txt = $<HTMLTextAreaElement>('#txt');
+  let lastFound: { label: string; ok: boolean }[] = [];
   const mode = () => (stage !== 'answer' ? stage : (P?.kind ?? 'num'));
   const tableBox = () => $('#qmath').querySelector<HTMLElement>('.tside') ?? field;
   /** The element that shakes, glows and bursts for the current answer mode. */
-  const answerBox = () => (mode() === 'pair' ? pairEl : mode() === 'table' ? tableBox() : field);
+  const answerBox = () => (mode() === 'pair' ? pairEl : mode() === 'table' ? tableBox() : mode() === 'text' ? txt : field);
 
   /** Shows the answer controls for the current mode. */
   function showAnswerRow() {
@@ -124,8 +128,9 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     field.hidden = m !== 'num';
     pairEl.hidden = m !== 'pair';
     choicesEl.hidden = m !== 'choice';
-    kbtn.hidden = m === 'choice' || m === 'plot';
-    if (m === 'choice' || m === 'plot') keypad.hidden = true;
+    txt.hidden = m !== 'text';
+    kbtn.hidden = m === 'choice' || m === 'plot' || m === 'text';
+    if (m === 'choice' || m === 'plot' || m === 'text') keypad.hidden = true;
     submit.hidden = m === 'choice' || m === 'plot';
     choicesEl.classList.remove('done');
     if (m === 'choice') renderChoices();
@@ -365,10 +370,11 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
       });
       $('#lhs').innerHTML = P.lhs;
       $('#qn').textContent = `Question ${qnum}`;
-      for (const el of [inp, px, py]) {
+      for (const el of [inp, px, py, txt]) {
         el.value = '';
         el.disabled = false;
       }
+      txt.className = 'txt';
       field.className = 'field';
       pairEl.className = 'pair';
       showAnswerRow();
@@ -380,6 +386,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
       submit.className = 'btn primary submit';
       if ($<HTMLInputElement>('#autoclear').checked && !first) pad.clear();
       activeInput = m === 'pair' ? px : m === 'table' ? cells[0] : inp;
+      if (m === 'text' && matchMedia('(hover:hover)').matches) setTimeout(() => txt.focus({ preventScroll: true }), 50);
       if (m !== 'choice' && matchMedia('(hover:hover)').matches) activeInput.focus({ preventScroll: true });
       qwrap.classList.remove('slide-out');
       if (!first && !reduceMotion()) {
@@ -410,8 +417,24 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   const escapeHTML = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   const FORMAT_HELP = `<span>Enter a number like <b>7</b>, <b>−3</b>, <b>0.25</b> or <b>5/8</b>. That didn’t use a try.</span>`;
 
+  const findPoints = (text: string) => pointsFound(P!.points!, text);
+  const checklist = (found: { label: string; ok: boolean }[]) =>
+    `<ul class="chk">${found.map((f) => `<li class="${f.ok ? 'ok' : 'no'}">${f.ok ? '✓' : '✗'} ${f.label}</li>`).join('')}</ul>`;
+
   /** Reads the typed answer: whether it's right and how to show it, or null after showing a hint (no try used). */
   function readTyped(): { right: boolean; shown: string } | null {
+    if (mode() === 'text') {
+      const raw = txt.value.trim();
+      if (raw.split(/\s+/).length < 4) {
+        txt.focus();
+        replayClass(txt, 'shake');
+        msg('nudge', '<span>Write at least a full sentence. That didn’t use a try.</span>');
+        return null;
+      }
+      const found = findPoints(raw);
+      lastFound = found;
+      return { right: found.every((f) => f.ok), shown: escapeHTML(raw.length > 140 ? raw.slice(0, 140) + '…' : raw) };
+    }
     if (mode() === 'pair') {
       const rx = px.value.trim(), ry = py.value.trim();
       if (!rx || !ry) {
@@ -451,7 +474,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   }
 
   function lockInputs() {
-    for (const el of [inp, px, py, ...cells]) el.disabled = true;
+    for (const el of [inp, px, py, txt, ...cells]) el.disabled = true;
     choicesEl.querySelectorAll<HTMLButtonElement>('.choice').forEach((b) => (b.disabled = true));
     choicesEl.classList.add('done');
   }
@@ -481,7 +504,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     S.best = Math.max(S.best, S.streak);
     s.best = Math.max(s.best, S.streak);
     const firstTry = attempt === 1;
-    const gain = firstTry ? 10 + Math.min(S.streak - 1, 5) * 2 : 5;
+    const gain = xpFor(S.topic, firstTry, S.streak);
     const xpBefore = S.xp;
     S.xp += gain;
     s.xp += gain;
@@ -513,6 +536,13 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     save();
     if (before < GOAL && s.pts >= GOAL && !s.done) {
       s.done = true;
+      // mastery bonus lands the total on a round number
+      const bonus = masteryBonus(S.xp);
+      const b4 = S.xp;
+      S.xp += bonus;
+      s.xp += bonus;
+      lessonBonus = bonus;
+      lessonUnlocks.push(...checkUnlocks(b4, S.xp));
       save();
       setTimeout(showDone, reduceMotion() ? 600 : 1500);
     }
@@ -534,8 +564,11 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
           ? `<span><b>Not that one.</b> One more try.</span>`
           : mode() === 'table'
             ? `<span><b>Some values are off.</b> Fix the red cells. One more try.</span>`
-            : `<span><b>Not quite.</b> One more try. Check your signs and your arithmetic.</span>`,
+            : mode() === 'text'
+              ? `<div><b>Almost.</b> Your answer is missing some key points. Add them and try again.${checklist(lastFound)}</div>`
+              : `<span><b>Not quite.</b> One more try. Check your signs and your arithmetic.</span>`,
       );
+      if (mode() === 'text') txt.focus();
       if (mode() === 'num') inp.select();
       if (mode() === 'pair') px.select();
       if (mode() === 'table') cells.find((c) => c.classList.contains('bad'))?.select();
@@ -583,6 +616,13 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   }
 
   submit.onclick = check;
+  txt.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      check();
+    }
+  });
+  txt.addEventListener('input', () => txt.classList.remove('bad'));
   for (const el of [inp, px, py])
     el.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
@@ -688,6 +728,10 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     $('#dAcc').textContent = Math.round((s.right / s.total) * 100) + '%';
     $('#dStreak').textContent = String(s.best);
     $('#dXp').textContent = String(s.xp);
+    $('#dBonus').innerHTML = lessonBonus ? `Mastery bonus <b>+${lessonBonus} XP</b>: you’re on a round <b>${S.xp} XP</b>. Good place for a break.` : '';
+    $('#dBonus').hidden = !lessonBonus;
+    lessonBonus = 0;
+    renderStats(true);
     const dNew = $('#dNew');
     dNew.hidden = !lessonUnlocks.length;
     dNew.innerHTML = lessonUnlocks.length

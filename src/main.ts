@@ -7,6 +7,7 @@ import { initNotepad } from './ui/notepad';
 import { initPractice } from './ui/practice';
 import { initFeedback } from './ui/feedback';
 import { initRewards, toastNew } from './ui/rewards';
+import { breakButtonHTML, initBrainBreaks } from './ui/brainbreak';
 
 /* Routing on the URL hash: #lessons (or nothing) is the menu, #<lesson id> is practice. */
 type View = 'menu' | 'practice';
@@ -56,6 +57,9 @@ const graph = initGraph();
 const practice = initPractice(go, pad, graph);
 initMenu(go);
 initFeedback();
+const showBreaks = () => document.querySelectorAll('.bbslot').forEach((el) => (el.innerHTML = breakButtonHTML()));
+initBrainBreaks(() => practice.active, showBreaks);
+showBreaks();
 initRewards(() => {
   if (view === 'menu') renderMenu();
 });

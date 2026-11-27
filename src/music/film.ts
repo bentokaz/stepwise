@@ -6,6 +6,7 @@
  */
 import { F } from '../math/core';
 import type { Problem, Topic } from '../math/topics';
+import { ESSAYS, RECALL, toWritten, type Written } from './written';
 
 const GROUP = 'Music in Film test prep';
 
@@ -712,12 +713,25 @@ export const BANKS: Record<string, Source[]> = {
 };
 const ALL = Object.values(BANKS).flat();
 
+/** A written-answer lesson, dealt from a deck like the others. */
+function writtenLesson(id: string, inst: string, items: Written[], sample: string) {
+  return () => {
+    const i = deal(id, items.length);
+    const p = toWritten(items[i], inst);
+    p.sample = `<span class="msamp">${sample}</span>`;
+    p.onMiss = () => again(id, i);
+    return p;
+  };
+}
+
 export const MUSIC_TOPICS: Topic[] = [
   { id: 'mus-vocab', group: GROUP, name: 'Key vocabulary', op: '', gen: lesson('mus-vocab', 'Choose the best answer.', VOCAB, 'Leitmotif? Ostinato? Hit point?') },
   { id: 'mus-mood', group: GROUP, name: 'Elements & mood', op: '', gen: lesson('mus-mood', 'Choose the best answer.', MOOD_ITEMS, 'Tension or warmth?') },
   { id: 'mus-func', group: GROUP, name: 'What the music is doing', op: '', gen: lesson('mus-func', 'Choose the best answer.', FUNC_ITEMS, 'Foreshadowing? Setting?') },
   { id: 'mus-hist', group: GROUP, name: 'History of film scoring', op: '', gen: lesson('mus-hist', 'Choose the best answer.', BANKS['mus-hist'], '1927 → 1933 → 1960 → 1975 → 1982 → 2010') },
   { id: 'mus-write', group: GROUP, name: 'Element → choice → effect', op: '', gen: lesson('mus-write', 'Choose the best answer.', WRITE_ITEMS, 'Write a strong answer') },
+  { id: 'mus-recall', group: GROUP, name: 'Milestones from memory', op: '', gen: writtenLesson('mus-recall', 'Write your answer. Name the film, composer and year where you can.', RECALL, 'Type it: 1927? 1960? 1982?') },
+  { id: 'mus-essay', group: GROUP, name: 'Written answers', op: '', gen: writtenLesson('mus-essay', 'Write a short answer: name the element, the specific choice, and the effect on the audience.', ESSAYS, 'Element → choice → effect, in your own words') },
   { id: 'mus-mix', group: GROUP, name: 'Mixed test', op: '', gen: lesson('mus-mix', 'Mixed practice: choose the best answer.', ALL, 'Everything, shuffled') },
 ];
 

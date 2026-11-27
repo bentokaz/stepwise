@@ -21,6 +21,13 @@ export interface SaveData {
   screen?: string;
   /** Rewards unlocked but not yet seen in the Rewards dialog. */
   newRewards?: string[];
+  /** Brain breaks banked, seconds of work towards the next one, and game bests. */
+  breaks?: number;
+  workSec?: number;
+  bestStack?: number;
+  bestTap?: number;
+  /** Title reward id. */
+  title?: string;
   /** Accent colour id. */
   accent?: string;
   /** Notes/Graph/Examples panel minimised. */

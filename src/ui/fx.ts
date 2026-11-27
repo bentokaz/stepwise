@@ -47,7 +47,7 @@ export function floatXP(n: number, anchor: Element, text = `+${n} XP`): void {
 }
 
 /** The success screens you can pick in Rewards. */
-export type Screen = 'tiles' | 'shockwave' | 'stripes' | 'rain' | 'blinds' | 'curtain';
+export type Screen = 'tiles' | 'shockwave' | 'stripes' | 'rain' | 'blinds' | 'curtain' | 'checker' | 'bars' | 'pixels' | 'wipe';
 
 const EASE_IN = 'cubic-bezier(.2,.9,.3,1.12)';
 const EASE_OUT = 'cubic-bezier(.55,0,.85,.35)';
@@ -139,6 +139,30 @@ export function bigWin(origin: Element, gain: number, streak: number, first: boo
         'scaleX(0)',
         Math.abs(i - (n - 1) / 2) * 32,
       );
+  } else if (screen === 'checker') {
+    // a checkerboard: one colour of square pops in, then the other
+    const size = Math.ceil(Math.max(W, H) / 9), cols = Math.ceil(W / size), rows = Math.ceil(H / size);
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        piece(`left:${c * size}px;top:${r * size}px;width:${size + 1}px;height:${size + 1}px;background:${main}`, 'scale(0)', 'scale(1)', 'scale(0)', (r + c) % 2 ? 150 : 0);
+  } else if (screen === 'bars') {
+    // horizontal bars slide in from alternating sides
+    const n = 8, bh = H / n;
+    for (let i = 0; i < n; i++) {
+      const dir = i % 2 ? 1 : -1;
+      piece(`left:0;top:${i * bh - 1}px;width:${W}px;height:${bh + 2}px;background:${i === 3 ? alt : main}`, `translateX(${dir * 101}%)`, 'translateX(0)', `translateX(${-dir * 101}%)`, i * 35);
+    }
+  } else if (screen === 'pixels') {
+    // small squares fade in at random, like a dissolve
+    const size = Math.ceil(Math.max(W, H) / 22), cols = Math.ceil(W / size), rows = Math.ceil(H / size);
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        piece(`left:${c * size}px;top:${r * size}px;width:${size + 1}px;height:${size + 1}px;background:${Math.random() < 0.06 ? alt : main}`, 'scale(0)', 'scale(1)', 'scale(0)', Math.random() * 280);
+  } else if (screen === 'wipe') {
+    // one big slanted panel wipes across from corner to corner
+    const D = Math.hypot(W, H);
+    piece(`left:${W / 2 - D}px;top:${H / 2 - D}px;width:${2 * D}px;height:${2 * D}px;background:${main}`, 'rotate(35deg) translateX(-100%)', 'rotate(35deg) translateX(0)', 'rotate(35deg) translateX(100%)', 0);
+    piece(`left:${W / 2 - D}px;top:${H / 2 - 6}px;width:${2 * D}px;height:12px;background:${alt}`, 'rotate(35deg) scaleX(0)', 'rotate(35deg) scaleX(1)', 'rotate(35deg) scaleX(0)', 120);
   } else {
     // curtain: two halves meet in the middle, then lift away
     piece(`left:0;top:0;width:${W / 2 + 1}px;height:${H}px;background:${main}`, 'translateX(-101%)', 'translateX(0)', 'translateY(-101%)', 0);

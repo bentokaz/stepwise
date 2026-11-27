@@ -40,7 +40,10 @@ export interface Problem {
   /** Show the answer as a decimal instead of a fraction. */
   fmt?: 'dec';
   /** How the answer is entered: one number (default), an (x, y) pair, or picking one option. */
-  kind?: 'num' | 'pair' | 'choice';
+  kind?: 'num' | 'pair' | 'choice' | 'text';
+  /** Written answers: the key points it must mention (any one word in each list counts) and a model answer. */
+  points?: { label: string; any: string[] }[];
+  model?: string;
   /** Answer for kind 'pair'. */
   pair?: [Frac, Frac];
   /** Options and the correct index for kind 'choice'. */
@@ -279,7 +282,9 @@ export const TOPICS: Topic[] = [
 ];
 
 export const ansHTML = (pr: Problem): string =>
-  pr.kind === 'pair' && pr.pair
+  pr.kind === 'text' && pr.model
+    ? pr.model
+    : pr.kind === 'pair' && pr.pair
     ? pairHTML(pr.pair)
     : pr.kind === 'choice' && pr.choices
       ? pr.choices[pr.correct ?? 0]
@@ -288,3 +293,42 @@ export const ansHTML = (pr: Problem): string =>
         : fH(pr.ans);
 export const topicName = (t: Topic): string => t.name + (t.op ? ` (${t.op})` : '');
 export const findTopic = (id: string): Topic | undefined => TOPICS.find((t) => t.id === id);
+
+/**
+ * XP for a first-try answer in each lesson: harder question types are worth more.
+ * Quick multiple choice is cheapest; multi-step working and the graphing lesson
+ * (fill tables, plot, read the crossing) are worth the most. Unlisted lessons get 8.
+ */
+export const XP_BASE: Record<string, number> = {
+  'mus-vocab': 5,
+  'mus-mood': 5,
+  'mus-func': 6,
+  'mus-hist': 6,
+  'mus-write': 7,
+  'mus-mix': 6,
+  'mus-recall': 12,
+  'mus-essay': 15,
+  mul: 6,
+  div: 6,
+  int: 7,
+  frac: 9,
+  pct: 9,
+  two: 10,
+  dist: 11,
+  slope: 12,
+  'sim-mult': 8,
+  'sim-explain': 9,
+  'sim-sub': 18,
+  'sim-elim': 20,
+  'sim-graph': 25,
+};
+export const xpBase = (id: string): number => XP_BASE[id] ?? 8;
+
+/** XP for a correct answer: the lesson's base, a streak bonus on first tries, half on a second try. */
+export function xpFor(id: string, firstTry: boolean, streak: number): number {
+  const b = xpBase(id);
+  return firstTry ? b + Math.min(streak - 1, 5) * Math.ceil(b / 5) : Math.ceil(b / 2);
+}
+
+/** Bonus for mastering a lesson: tops your total up to the next multiple of 50, a good place to stop. */
+export const masteryBonus = (xp: number): number => 50 - (xp % 50);
