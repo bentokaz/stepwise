@@ -1,0 +1,10 @@
+{
+  "name": "Stepwise",
+  "short_name": "Stepwise",
+  "description": "Math practice with fresh questions, two tries and step-by-step working.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#E9EFEC",
+  "theme_color": "#0F5C58",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
