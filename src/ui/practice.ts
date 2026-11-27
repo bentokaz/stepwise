@@ -2,7 +2,7 @@
 import { F, feq, pick } from '../math/core';
 import { FR, MINUS, o } from '../math/html';
 import { clean, parseAnswer } from '../math/parse';
-import { GOAL, TOPICS, findTopic, masteryBonus, topicName, xpFor, type Problem } from '../math/topics';
+import { GOAL, TOPICS, effortBonus, findTopic, masteryBonus, topicName, xpFor, type Problem } from '../math/topics';
 import { S, progress, save } from '../state';
 import { $, $$, reduceMotion, replayClass } from './dom';
 import { bigWin, burstAt, confettiRain, floatXP } from './fx';
@@ -13,6 +13,7 @@ import type { Notepad } from './notepad';
 import { SPEAKER_OFF, SPEAKER_ON, sfx } from './sound';
 import { walkthrough } from './walkthrough';
 import { pointsFound } from '../music/written';
+import { recentlyActive } from './brainbreak';
 
 type Phase = 'ask' | 'solved' | 'revealed';
 
@@ -48,6 +49,11 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
   let answered = 0;
   let lessonUnlocks: Reward[] = [];
   let lessonBonus = 0;
+  /** Seconds of active work on the current question (input in the last 15 s, tab visible, no break open). */
+  let activeSec = 0;
+  setInterval(() => {
+    if (api.active && phase === 'ask' && document.getElementById('bb')!.hidden && recentlyActive(15000)) activeSec++;
+  }, 1000);
 
   const topic = () => findTopic(S.topic)!;
 
@@ -357,6 +363,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
       phase = 'ask';
       qnum++;
       lastWrong = '';
+      activeSec = 0;
       stopPlotting();
       stage = P.table ? 'table' : 'answer';
       const m = mode();
@@ -504,7 +511,8 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     S.best = Math.max(S.best, S.streak);
     s.best = Math.max(s.best, S.streak);
     const firstTry = attempt === 1;
-    const gain = xpFor(S.topic, firstTry, S.streak);
+    const effort = effortBonus(S.topic, activeSec);
+    const gain = xpFor(S.topic, firstTry, S.streak) + effort;
     const xpBefore = S.xp;
     S.xp += gain;
     s.xp += gain;
@@ -523,7 +531,7 @@ export function initPractice(go: (hash: string) => void, pad: Notepad, graph: Gr
     } else bigWin(box, gain, S.streak, firstTry, currentScreen());
     msg(
       'good',
-      `<div><b>${firstTry ? pick(['Correct.', 'Nailed it.', 'Clean.', 'That’s it.']) : 'Correct on the second try.'}</b> <span class="sub">+${gain} XP${S.streak > 1 ? ` · ${S.streak} in a row` : ''}</span></div><button class="linkbtn" id="seeW">See the working</button>`,
+      `<div><b>${firstTry ? pick(['Correct.', 'Nailed it.', 'Clean.', 'That’s it.']) : 'Correct on the second try.'}</b> <span class="sub">+${gain} XP${effort ? ` (incl. +${effort} for effort)` : ''}${S.streak > 1 ? ` · ${S.streak} in a row` : ''}</span></div><button class="linkbtn" id="seeW">See the working</button>`,
     );
     $('#seeW').onclick = () => {
       fb.innerHTML = '';

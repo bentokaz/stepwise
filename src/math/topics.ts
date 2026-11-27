@@ -332,3 +332,11 @@ export function xpFor(id: string, firstTry: boolean, streak: number): number {
 
 /** Bonus for mastering a lesson: tops your total up to the next multiple of 50, a good place to stop. */
 export const masteryBonus = (xp: number): number => 50 - (xp % 50);
+
+/**
+ * Effort bonus: time spent actively working on a question (typing, notes, trying answers)
+ * earns extra XP. The first 20 seconds are free; after that +1 XP per 15 active seconds,
+ * capped at the lesson's base XP so the most it can do is double a question's value.
+ */
+export const effortBonus = (id: string, activeSec: number): number =>
+  Math.min(xpBase(id), Math.floor(Math.max(0, activeSec - 20) / 15));

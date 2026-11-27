@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TOPICS, masteryBonus, xpBase, xpFor } from '../src/math/topics';
+import { TOPICS, effortBonus, masteryBonus, xpBase, xpFor } from '../src/math/topics';
 
 describe('XP', () => {
   it('harder lessons are worth more', () => {
@@ -21,5 +21,13 @@ describe('XP', () => {
       expect(b).toBeGreaterThan(0);
       expect((xp + b) % 50).toBe(0);
     }
+  });
+  it('effort: nothing for quick answers, +1 per 15 active seconds after 20, capped at the base', () => {
+    expect(effortBonus('sim-graph', 10)).toBe(0);
+    expect(effortBonus('sim-graph', 20)).toBe(0);
+    expect(effortBonus('sim-graph', 35)).toBe(1);
+    expect(effortBonus('sim-graph', 200)).toBe(12);
+    expect(effortBonus('sim-graph', 10000)).toBe(xpBase('sim-graph'));
+    expect(effortBonus('mus-vocab', 10000)).toBe(xpBase('mus-vocab'));
   });
 });

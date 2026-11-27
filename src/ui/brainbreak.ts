@@ -14,6 +14,8 @@ const MAX = 6;
 const IDLE_SEC = 60;
 
 let lastInput = 0;
+/** True if the student typed, clicked or tapped within the last `ms` and the tab is visible. */
+export const recentlyActive = (ms: number): boolean => !document.hidden && Date.now() - lastInput < ms;
 let isPractising: () => boolean = () => false;
 let onChange: () => void = () => {};
 
